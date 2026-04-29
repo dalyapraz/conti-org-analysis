@@ -1,0 +1,155 @@
+Sentence
+Most of the ideas in this document are known to experienced developers.
+MANAGEMENT PRINCIPLES
+"There are many models of development management, of which different variations of Agile are now prevailing."
+"Moreover, this methodology has acquired the status of dogma and has expectedly spawned sects of fanatics."
+"We do not follow any ready-made model and use our own, taking the best of different approaches."
+"At the same time, we avoid dogmatism and the temptation to ""bronze""."
+What we take from Agile is flexibility.
+This means that we change any interfering rules.
+Iterativity and related rituals are not necessary because of the specifics of our software consumers.
+We keep the lack of hierarchy in anarchic self-organization:
+- direct communication of everyone with everyone on any issue
+- direct communication between developer and customer
+- network organization of working groups
+- multiple roles of a participant depending on his involvement in a particular project.
+"(technical leader in project A, executor in project B, customer in project C)"
+From free software development techniques we take the version control system and the bug accounting system.
+"These systems were widely used in the early 90's in the framework of Mozilla project and other free software development,"
+although for some reason they are considered to be attributes of Agile.
+"From the bureaucracy of project development we take historicity, the ability to find something that has already been there once."
+Remember: LIFE is the self-organization of chaotic matter.
+Chaos is characterized by self-organization on energy flows.
+We are this CHAOS.
+LIFE itself will correct us when we begin to slouch (not some magic techniques).
+CODING PRINCIPLES
+*
+"In coding style, the main thing is names."
+Not brackets and indents.
+"The ability to name, to name, is an indicator of the developer's level."
+"If you give a good and appropriate name to a variable or function or class, everything else will almost automatically be good."
+"If the opposite is true, then almost automatically everything else will be bad."
+A good name doesn't mean a long name.
+"It means appropriate, suitable, apt, accurately reflecting the essence, best characterized,"
+"grammatically correct, usable and recognizable by others in a similar context."
+"You may have noticed that in Visual Studio's Refactoring submenu, the Rename item comes first."
+A wrong choice will sprout in the code forever!
+Be afraid of misprints like imfo or autometic - you make a mistake once and for all.
+"Worst of all, if such a misprinted identifier gets into the interface!!!"
+"If you have code spread across several subsystems in different programming languages and interfaces, use the same name everywhere."
+"It's hard to look for inconsistencies when a variable sounds like errno in C++, is passed to HTTP API as errLvl,"
+and in the logs it is written as errorLevel.
+* Comments explain what well-chosen names don't.
+We have a lot of magic being used.
+"Explain _intentions_ other than _methods_, as much as possible, with extended comments."
+"One should write not only ""what I do and how I do it"", but primarily ""why I do it, what goal I achieve, what problem I solve""."
+bad
+// allocate memory in a remote process and run shell code
+good
+"// we need to remove hooks on such and such function in the remote process, because otherwise this and that won't work."
+"// so we allocate memory in the remote process and run the shell code, which is taken from here from the github https://...."
+// the shell code will find such and such bytes in the prologue of such and such function and patch them to the ones we need.
+"// there were also variants one (link) and two (link), but they don't work well on such and such systems."
+In compiled programming languages (hereinafter referred to as PHP) comments are written in Russian.
+"In interpreted languages, comments and identifiers are in English only, only grammatically clean!"
+Scripts that have fallen to the enemy must not indicate your nationality.
+* The best code is the one that doesn't exist.
+Don't write too much.
+Don't make plans for years to come.
+"""Tomorrow may never come, and no one will need it."
+"""Tomorrow"" will turn out to be wrong."
+"Brevity, minimalism is everything."
+Don't create entities.
+That's the greatest sin of an engineer!
+"Cut off all unnecessary things with Occam's Razor - frameworks, OOP, third-party libraries, wrappers."
+Ideal code should occupy zero bytes (this is a real case when using someone else's software).
+* there is no sense in writing code if it has already been written by someone else.
+"Before writing it, search the Web."
+"If you have taken someone else's code, be sure to put a link to the source code where it was taken from."
+ERROR HANDLING
+We suggest the following method of error handling in code:
+- C++ exceptions are not used
+- SEH/VEH exceptions are used only for removing the postmortem stack or for protecting dangerous code sections (e.g. execution of arbitrary shell code).
+"(for example, execution of arbitrary shell code)"
+"- all functions write about the error immediately in stderr, preceding the line with the function name."
+For example:
+"fprintf(stderr, __FUNCTION__"
+""" Invalid file handle\r\n"");"
+"- if the function returns a collection (for example, of found characters), then in case of an error the return is an empty collection;"
+"- if the function returns a pointer, then NULL is an error;"
+"- if the function returns a string, an empty string is an error;"
+"- if the function returns an integer, 0 or -1 is an error;"
+"The calling context checks the return, and if it is unexpected and there is no way to substitute a default value,"
+we make the return from the current location according to the above error signaling rules.
+GIT POLICY
+"* We use Git not because everyone else does, but to accomplish these tasks:"
+1. Backup.
+"We've seen many cases of work lost over long periods of time (months, and once a year), simply due to developer sloppiness."
+2.
+Multiple people working together on a project
+3. Finding the author of specific lines of code
+4. Finding a regression by rolling back and successive builds through history
+5.
+"Maintaining the history of changes (Release notes, Changelog)"
+6.
+"Versioning, release management"
+That's why the rules below are written for these benefits.
+There may be other rules for other tasks.
+"* Commits are mandatory whenever there is something to commit (that is, just about every day)."
+"Even if the code is down and not finished, commit to a temporary branch."
+It's better than losing a day's work.
+"* It is desirable to keep stable code in a separate branch, and inject only checked changes into it."
+"* If a project has versions, each version corresponds to either a branch (if it is passed for support),"
+or a label (if only historical without support).
+"* If you are alone on the project, you maintain branches as you like."
+"* If more than one person is on the project, then development should be done in a private branch."
+Merging into the main branch is always done by a double merge.
+- first from the main branch to your branch (with conflict resolution and smoke test).
+- then from its own branch to the main branch.
+*
+"A commit should always have a comment, in Russian, describing the brief essence of the changes."
+"For example: ""Fix network buffer overflow on high frequency of requests""."
+"The comment should include the number of the bug or task from the accounting system,"
+"For example: ""B-1655 Fix network buffer overflow on high request frequency""."
+"When you put the bug ID, Git's integration with the bug accounting system will automatically associate the commit with the bug."
+* Commits should be atomic and minimal.
+One commit is one bug/task.
+This means that you can no longer fug a git push without figuring it out directly from the project directory.
+"If you are command line, you should list the files by name and make sure to diff with upstream before committing."
+Only those files that are related to a single task are commited.
+Only those lines of a file that are relevant to a single task are committed.
+"If this rule is not followed, the following benefits of Git become unavailable or difficult to achieve:"
+- cherry pick (moving code between non-synchronous branches)
+- blame (finding the author of the code) becomes very noisy
+"- searching for regressions by successive builds through history (when an error occurs in such a commit, it is impossible to tell which change it refers to)"
+* Use UI utilities to work with Git.
+"They show you exactly what has been changed relative to the main branch,"
+"allow you to send only individual lines from the file, and ignore your personal debugging changes and customizations,"
+that shouldn't make it to the server.
+* It is forbidden to commit
+"- any texts with real names, nicknames, passwords, URLs and IP addresses of our resources, addresses of cryptocurrencies, etc., etc. (unless specifically stated)."
+- archives and binary files that are not part of the project build steps
+BUG ACCOUNTING AND PROJECT DEVELOPMENT SYSTEM
+"We use this system not because everyone uses them, but for the following tasks:"
+1.
+To reduce writing.
+"You can poke at a text that has already been written, instead of writing to someone repeatedly."
+"It can be a task text, a comment describing the steps of reproducing an error, a picture or a log in an attachment."
+2.
+To find the ends (historicity).
+"Errors can be repeated, especially floating errors."
+A large number of errors are grouped around the same code lines.
+"In short, the situation ""this has already happened"" is frequent."
+3.
+For knowledge concentration and analytics.
+After some time a considerable amount of information is accumulated in the system.
+"Where should a developer or manager go for information, but not to this system?"
+4.
+For development management.
+"Maintaining a list of tasks, assigning tasks to executors, prioritizing, tracking work stages, scheduling."
+"Fellow developers, when there are a hundred of you and I am one (well, two or three), it is very hard to keep it all in my head."
+"A bug tracker is, among other things, your work log."
+"When working on a task, it is normal to write down notes for yourself."
+"When something works or something doesn't work - notes like ""this didn't work, here's the problem formulation"" are very valuable."
+RULES FOR WRITING ERROR REPORTS
+See the corresponding document.

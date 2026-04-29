@@ -1,0 +1,76 @@
+CRIPTER
+Technical Specifications
+
+You need to write a crypter, a program that contains a load as a PROPERTY .exe or .dll, masks it and runs it.
+
+The term "Stub" is an idle crypter shell with no load.
+
+REQUIREMENTS
+1. Build in both bit sizes (32/64); load of the same bit size as the stub.
+2. If the load is a .dll, it is started WITHOUT CreateProcess. By deploying the current process into memory, setting up relocs, importing/exporting, and calling the entry point.
+3. if the load is .exe, run with a fileless technique. Preferably ProcessHollowing.
+This should spoof the parent process.
+4. Stub should mask the load:
+4.1 Add "left" imports, mimicry (for example) a GUI program (calls from GDI in abundance), or a COM component
+4.2 Contain "noisy" logic: drawing windows, calling COM objects, etc. The logic is, of course, disabled and never triggered, but AB should think that we are about to finish initialization and then
+4.3 Resources can be added - left images, text strings, etc. 4.4.
+4.4 The load is encrypted and/or compressed. The simplest XOR encryption with long gamma can be used. The compression algorithm is the lightest in terms of size and simplicity of the algorithm itself.
+4.5 The load has high entropy and the underlying logic has low entropy. The load should be evenly distributed across different sections (.text, .data, .rdata, etc.).
+In this way you should bypass the entropy detectors of AB.
+5. Fulfill "code and assembly design" requirements
+6. There should be build profiles for both LLVMO and Microsoft C++.
+7. Measures to bypass sandboxes, delay load startup, are optional in the first phase.
+In the second stage they will become mandatory.
+
+Crypter usage mode assumes generation of hundreds of files with different hashes per day.
+All these files must have DIFFERENT noise strings, resources, if it works out - masking logic.
+That is, a high and AUTOMATIZED level of polymorphism is required.
+That is, all this randomization is proposed to be brought into the build system (in the form of build events or builder events).
+
+BUILD DESIGN
+
+The purpose of all further actions is to connect automatic assembly on the build machine, with the aim to produce a large volume of assemblies without human involvement.
+Due to the volume, the percentage of rejects at the output will have a lower value (it will be possible to choose 1 out of 10 good crypts).
+
+8. Manual operations should be excluded from the build.
+All preparatory, intermediate and final steps should be formalized as Build Events (right tap on the project in MSVS - Build Events).
+This includes flashing byte arrays unsigned char payload[] = {..} from binary files, encoding and packing the payload,
+stripping lines in the final binary, naming the final binary, and any similar manipulations.
+The build should be assembled in a single action.
+9. There should be a build script. For example, build.bat (see the appendix for a sample version).
+So that the build can be included in the automated build system on the build machine.
+10. There should be a build profile for each type of load. For example, Release_Dll_Payload1, Release_Exe_Payload1 for load 1,
+Release_Dll_Payload2, Release_Exe_Payload2 for load 2, and so on.
+The build profile allows you to define an independent set of preprocessor macros.
+The preprocessor macros can be used to specify how parameters are passed to the load, how it is deployed, and so on.
+A similar approach is used for CMake-like build systems.
+
+APPENDIX 1: BUILD SCRIPT
+
+echo Build started %DATE% %TIME%
+
+rem Customize paths to suit your needs.
+rem LOCAL CHANGES IN THIS FILE IN GIT DO NOT COMMIT!
+
+set msbuild="C:\Program Files (x86)\Microsoft Visual Studio\2017\Enterprise\Common7\IDE\devenv.exe"
+set sln=D:\Projects/project/project.sln.
+set buildlog=project.log
+
+rem type nul > %buildlog%
+echo Build started %DATE% %TIME% > %buildlog%
+
+:buildmain
+set buildprofile="Release|Win32"
+%msbuild% %sln% /Clean %buildprofile%
+%msbuild% %sln% /Build %buildprofile% /Out %buildlog% || goto builderr
+
+:over
+echo Build finished successfully %DATE% %TIME%
+echo Build finished successfully %DATE% %TIME% >> %buildlog%
+
+exit(0)
+
+:builderr
+echo Build %buildprofile% failed %DATE% %TIME%
+echo Build %buildprofile% failed %DATE% %TIME% >> %buildlog%
+exit(1)

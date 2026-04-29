@@ -1,0 +1,13 @@
+ERROR REPORTING RULES
+
+Copy this text, put Enter after each line, and answer the questions:
+1. What did I want to do?
+2. What did I do? (detailed steps to reproduce)
+3. what happened? (how did the system react)
+4. What did I expect? (how should the system have reacted, in my opinion)
+5. What did I do to localize the error (what factors did I vary to find the error)
+6. Environment (version and bitness of OS, build, and software involved; paths, specific settings, IP addresses and domains)
+7. Logs and screenshots.
+
+Be sure to attach any attachments to the bug, rather than linking them to a file-sharing site.
+After a few days, the link will go stale, and the bug is addressed years later.

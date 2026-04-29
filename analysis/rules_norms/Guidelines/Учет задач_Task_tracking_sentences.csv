@@ -1,0 +1,31 @@
+Sentence
+TASK ACCOUNTING IN THE BUG TRACKER
+"At any given time, there must be at least one task assigned to you in the ""In Progress"" status."
+"If you are working on a project alone, you create tasks and keep track of them yourself."
+"For a project in development, this means you need to present the work plan in the form of tasks,"
+"break down a large task into subtasks, give time estimates for those subtasks."
+"For a maintenance project, these are ongoing routine tasks."
+"Otherwise, the tasks are created by your technical manager."
+Give the task a runtime estimate when you create it.
+"Change the status of the task when you take the task to work, send it for testing or review."
+A task should have an executor!
+"The ""Testing"" and ""Review"" statuses are assigned to a task only if it is relevant for this project."
+"IN WORK -> TESTING When a task is transferred to testing, the tester is set as the executor."
+"TESTING -> IN WORK When a task is returned for revision, the developer is the executor."
+"TESTING -> DONE When a task is transferred to the ""ready"" status, the task is assigned to the project manager."
+"For testing tasks, there should always be a primary task:"
+- for development (something the developer has been working on and now it needs to be tested)
+-
+or a regular daily test (daily/regularly tested builds).
+"In the first case, the developer transfers the task to the tester, the task is closed after acceptance."
+"In the second case, the task can be open forever (with assignment to a tester), time and notes are logged into it."
+Mark the progress of the task.
+Note the time spent daily.
+"If you need to attach a file (log, screenshot, etc.)"
+", you physically attach the file to the task."
+Do NOT provide links to file sharing sites.
+Keep working notes in the comments of the task.
+"If there is a difficult problem on the way to the goal,"
+"or you've found a solution to a problem,"
+or if you have a question - write a comment.
+Don't forget to give links to the source of the solution.

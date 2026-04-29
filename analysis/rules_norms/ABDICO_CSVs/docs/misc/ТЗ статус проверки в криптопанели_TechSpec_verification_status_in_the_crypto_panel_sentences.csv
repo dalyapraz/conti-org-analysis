@@ -1,0 +1,109 @@
+Sentence
+Refinement for storing sample verification status in the cryptopanel
+PURPOSE OF ADVANCEMENT
+This is part of a set of measures to automate testing of crypto samples.
+The general meaning of the enhancement is as follows:
+- a queue of samples for testing is formed in the crypto panel (very similar to virustotal.com or dyncheck.com)
+- we have a pool of virtual machines with testing scripts on them.
+"- The scripts pull the crypto panel saying for example ""hey, I'm an IEWIN10 machine, give me the files to test on me""."
+"- the cryptopanel responds by giving the file from the queue, making the necessary notes in the database."
+"- scripts test something there, then give a response, e.g. ""Hi, I am IEWIN10 machine, I tested file so-and-so, I answer, the file sucks!"
+"Here is the log."""
+IMPROVEMENT IMPLEMENTATION
+Now in the cryptopanel are stored samples uploaded there by users.
+It is necessary to add statuses for CLIPPED samples:
+- Don't need to check
+- Need to check
+- Checked
+- Checked
+Based on these statuses:
+- Automated testing scripts can select samples to be tested on our virtualizations
+- and also give the result of the test.
+All this together will minimize manual work when testing crypts.
+DETAILS
+"The status ""do not need to be verified"" is assigned to those that are known to be inoperable or those that do not need to be verified for some reason."
+"There must be a reason for the ""do not need to check"" status - enum { ""known to be out of order"", ""own reason"" (and then a comment to it) }"
+"The following attributes should also be added to the ""Need to check"" status:"
+- simple number - check priority.
+"For the user it is desirable to make the management of this priority via drag-drop, but it's as convenient as it is."
+*PRINT 18.09.2018*
+Priority as a separate property is not necessary.
+It is better to add the file to be checked at the beginning or end of the queue.
+- sign of virtualization rollback (boolean value).
+Default value = true.
+"If this flag = true, it means that you are allowed to roll back the virtualization after the test."
+"If the flag = false, then after the test the VM should not be rolled back, and new tasks should not be added to this VM."
+In the user interface
+"need indicators/buttons of VM statuses, with the help of which the operator can re-enable the VM."
+"Accordingly, the VM should have the status ""active""/""inactive"", which status allows assigning tasks to it."
+"The ""Checked"" status is accompanied by the details:"
+* for each virtual machine:
+- full verification log (text field up to 64k in length)
+- verification status: success/failure
+- date and time of the start and end of the check
+The system must have a virtual machine management section:
+- create-edit-delete-machine.
+In the machine properties:
+- name
+- OS bit capacity
+- OS version
+Verification is performed ON OVER ALL MACHINES.
+The overall success of the check is determined by the success of the check ON ALL MACHINES.
+"Accordingly, there should be a section for managing the list of machines."
+"A machine has properties - name, and IP address."
+"When the check script connects to the panel via API, it introduces itself to the system - gives the name of the machine it is running on."
+CUSTOM SCRIPT
+The operator can:
+"- select files to be checked by marking them with a ""need to check"" status and selecting a list of machines to check"
+- select the priority of files to be checked
+- mark files that do not need to be checked
+- view the result of the check (view the check log on each machine)
+"- reset the check result (for example, if the check hangs, or if you need to recheck a file)"
+*AMENDMENT 18.09.2018*.
+"When assigning a file to be checked on a specific virtualization, a command should be issued to start that virtualization."
+"The result of the command should be ignored - if the virtualization is already running, the VM manager will ignore this command."
+API
+"We need to provide an API to automate the script, with the following operations:"
+1. give me the next highest priority file in the queue to check on the machine named %MACHINE%
+HTTP POST /some-random-and-long-api-prefix/getfile
+Parameters:
+pass: shardcoded password - common to the entire API.
+String.
+machine: computer name.
+String.
+Response: json of the following form:
+{
+"""file_id"": 32, // file identifier in the database"
+"{ ""file"": ""TVqQAAMAAAAAAAAAAAAAAAAAAAAA//8AA"" // base64 encoded file body"
+}
+"Starting from the moment the file is given, this machine is marked in the database as checking this file."
+Repeated requests from the same machine for file output should be considered as valid --
+it means a network failure when receiving the file on the previous request.
+2. take the results of file checking on the %MACHINE% machine.
+HTTP POST /some-random-and-long-api-prefix/setresult
+Parameters:
+pass: shardcoded password - common to the entire API.
+String.
+machine: computer name.
+String.
+status: 0|1. number.
+"Only two values are possible - denoting ""ok"" and ""failed"" respectively."
+Indicates the overall result of the test.
+log: test log.
+"A long string (up to 64k, but in theory it can be more) in base64 encoding."
+file_id: number.
+The identifier of the file obtained in the previous request.
+The system looks to see which file was checked on the given machine and gives it the appropriate status.
+"IF the file has NOT been checked on the given machine, or the time of check start is too old (more than 24 hours), this request should be ignored as invalid."
+as invalid.
+"If the check is successful, OR if virtual machine rollback is enabled for this check,"
+you should rollback the virtual machine via the phpVirtualBox API (*IN DEVELOPMENT*).
+"Otherwise, the virtual machine will not be rolled back, and all pending validation tasks on that machine will continue to wait for the validation."
+"continue to wait until the operator manually clicks the ""rollback this virtualization"" button."
+"To do this, a notification to the operator should appear in the user interface, with a ""Rollback"" button."
+ACCESS
+"To minimize the risk of data leakage, access to the API should not overlap with regular accounts of the system."
+For this purpose it is proposed
+- API functions should be preceded by a long random prefix in the url (security by obscurity)
+- API functions should check for a sharded password sent in POST (so that the password does not show up in the logs along with the GET).
+- API functions should be carefully checked for injections.

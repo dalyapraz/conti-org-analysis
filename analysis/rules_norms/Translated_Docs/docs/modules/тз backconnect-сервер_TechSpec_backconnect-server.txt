@@ -1,0 +1,145 @@
+Backconnect server
+1 The server application runs on a Windows or Linux (Debian or Ubuntu) server. It is assumed that ASIO (Asynchronous IO) model with a fixed number of threads will be used. The only mandatory requirement: C++ language (preferably C++11) and 64-bit version at once. There are no restrictions on the libraries used.
+It is understood that the server will work as a daemon on the server (it is not necessary to register as a service in the system) and it will have the following operations: start, stop, restart.
+2 The server application tunnels incoming connections from the server port for SOCKS5 to the tunnel connection that the bc-client creates. Incoming connections to the port for SOCKS5 will be called ClientConnection, connections created by bc-clients will be called DataConnection.
+3 DataConnection processing. All DataConnection connect to a special port that opens the server. We'll call this port the DataConnPort. In each connection, a "handshake" takes place, during which the bc-client checks the validity of the server, and the server checks to see if the connection has been duplicated twice from the same client.
+After a successful handshake, the server opens a separate TCP-port for SOCKS5 connections, assigned specifically to this DataConnection. All connections arriving on this port will be tunneled to this DataConnection.
+3.1 Handshake in the DataConnection occurs immediately after the TCP connection and is initiated by the client.
+Request bc-client:
+ProtocolVersion: 4 bytes
+RequestSize: 4 bytes
+ClientID: 32 bytes
+RandHash: 16 bytes
+SelfAddressSize: 1 byte
+SelfAddress: 16 bytes
+
+RequestSize - response size in bytes. This size includes the size of all fields except ProtocolVersion
+ClientID - client identifier, a 32-byte block of binary data.
+RandHash - 16 bytes of random data for the server to duplicate them in the response.
+SelfAddressSize - address size in the SelfAddres field, can be 4 or 16.
+SelfAddress - bc-client's own external address. For IPv4 4, for IPv6 16 bytes.
+
+Server Response:
+ProtocolVersion: 4 bytes
+ResponseSize: 4 bytes
+ResponseCode: 4 bytes
+RandHash: 16 bytes
+AesKey: 32 bytes
+Padding: 0-16 bytes
+
+ResponseSize - response size in bytes. This size includes the size of all fields except ProtocolVersion
+ResponseCode - server response code. Possible values:
+0 - successful, 1 - server overloaded, 2 - internal error on the server, 3 - unsupported protocol version
+RandHash - RandHash field copied from the request.
+AesKey - not used in the current implementation, filled with random bytes.
+Padding - random bytes from 0 to 16. In the current implementation the server itself chooses the size of this field randomly and fills it with random bytes.
+If the server accepts an invalid handshake request, it closes the connection immediately. If a handshake request from the same bc-client (the bc-client is identified by the ClientID field) comes while it already has an active DataConnection, the previous one must be closed immediately.
+The only way to get the bc-client address is through the SelfAddress field in the handshake request. Getting the pir address from a socket is not the right way because there may be a DNAT pad between the bc-client and the server.
+
+3.2 Communication Protocol. Both sides are exchanged using the following message format:
+ConnectionID: 8 bytes
+DataSize: 4 bytes
+XorKey: 4 bytes
+Data: x bytes
+ConnectionID is an arbitrary unsigned 64-bit number that identifies the connection. Server and client keep their own lists of current connections. If a message with an unknown ConnectionID is received, it is considered that a new connection has been created.
+DataSize - the size of data in the Data field. If the data size is zero, the connection is considered closed.
+XorKey - 4 byte key to encrypt the Data field.
+Only the server can initiate the creation of a new connection. Receiving messages from bc-client with unknown ConnectionID is considered an error bc-client, when this situation occurs DataConnection must be broken by the server. When receiving a message with DataSize equal to zero ConnectionID is removed from the internal table (both bc-client and server) and ClientConnection associated with this ConnectionID must be broken by the server (before breaking the connection, the server must send all the data that are probably contained in the internal buffer of the server and waiting to send SOCKS5-client in ClientConnection).
+The choice of ConnectionID value when initiating a new connection is left to the developer, it can be random or sequentially incremented.
+3.2.1 Encryption of the Data field is performed as follows: the Data field is split into 4 byte parts, each part is xor-operated with the XorKey value. If the last part has a size smaller than 4 bytes, a byte-by-byte xor operation is performed with the remaining data bytes. Before each xor operation, the XorKey value is modified as follows: the fourth byte of XorKey is incremented, then it is moved to the first place, and the remaining bytes are shifted (from the first place to the second, from the second to the third, from the third to the fourth).
+Encryption pseudo-code:
+
+BYTE CurrentXorKey[4];
+CopyMemory(CurrentXorKey, XorKey, 4);
+int blocks = DataSize/4;
+for (int i=0; i<blocks ; i++)
+{
+	ModifyXorKey(CurrentXorKey);
+	for (int j=0; j<DataSize%4; j++)
+	{
+		Data[i*4 +j] ^= CurrentXorKey[j];
+	}
+}
+if (DataSize%4)
+{
+	ModifyXorKey(CurrentXorKey);
+	for (int j=0; j<DataSize%4; j++)
+	{
+		Data[blocks*4 +j] ^= CurrentXorKey[j];
+	}
+}
+
+ModifyXorKey function:
+void ModifyXorKey(unsigned char* pp)
+{
+	unsigned char temp = pp[3];
+	++temp;
+	pp[3]=pp[2];
+	pp[2]=pp[1];
+	pp[1]=pp[0];
+	pp[0]=temp;
+}
+
+3.3 If a DataConnection has a connection break, all ClientConnections associated with it must be broken. If a DataConnection has no data for 200 seconds, it must be broken.
+In DataConnection once in 180 seconds bc-client sends a test message with ConnectionID equal to 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFF and zero DataSize. In response to this message the server must reply with ConnectionID equal to 0xFFFFFFFFFFFFFFFFFFFFFE. Otherwise, the bc-client will terminate the connection.
+If the DataConnection is not recreated by the bc-client for a certain period of time (it is set in the server config), the SOCKS5-port associated with this DataConnection must be closed and freed for other DataConnections.  
+4 ClientConnection processing on the server should be performed by the following algorithm:
+1 Receiving the connection
+2 If the DataConnection associated with this port (a disconnect or something else has occurred) does not exist, closes the connection.
+3 We accept the authentication request via SOCKS5 protocol and reply to the client that authentication is not required.
+4 All other data is tunneled to the DataConnection.
+5 If at some point the DataConnection ceased to exist (disconnect or something else), it closes the connection.
+
+5 The server application has a config that specifies the number of worker threads, DataConnPort, SOCKS5 port relevance time in seconds after DataConnection deactualization, which is assigned to it.
+It is assumed that all SOCKS5 ports are opened in a fixed port range from 40000 to 65535.
+6 Bc-client is implemented as source code, which will then be implemented in another Windows project. The choice of development tools is left to the developer, but it is assumed that the entire clean compiled client binary files without above logic for both platforms (x86, x64) will not exceed 100 KB. Bc-client has a list of server addresses to connect to, it gets this list from the above logic. The list is a pair of ip:port values. Bc-client should mix them up before starting work and start working with them in order.
+If it fails to connect to the server because it is overgunned (handshake response code is 1), the attempt should be repeated after 45 seconds. If after 5 retries the same result is still obtained, the server must be changed to the next one. Any other handshake error code means an immediate server change. If the connection is not established at all (address or port is unavailable, server application is not running or just glitchy), it means immediate server change. If the bc-client has reached the end of the server list, it must start over. If it fails to start working with all servers, ALWAYS continue working indefinitely, until higher logic changes the server list.
+If a DataConnection is broken for any reason while working with a server, the bc-client must immediately create a new one.
+6.1 Operations that the bc-client provides to the higher-level logic:
+SetServerList() - set a new server list. If there was no list before, the bc-client should start working with them. If there was some list before, the bc-client should break the connection to the current server, overwrite the server list and start over.
+RestartCurrentDataConnection() - break the current DataConnection and start working with the current server again
+ChangeCurrentServer() - break the current DataConnection and start again with the next server in the list.
+Stop() - break the current DataConnection and clear the list of servers.
+6.2 In DataConnection once in 180 seconds bc-client sends test message with ConnectionID equal to 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF and zero DataSize. In response to this message the server must reply with ConnectionID equal to 0xFFFFFFFFFFFFFFFFFFFFFFFE and zero DataSize. Otherwise, bc-client must break the connection.
+6.3 To retrieve data about connected clients, an HTTP request shall be implemented. The format of the request is
+http://ip:port/<key>/<keypass>/<function>/<param1>/<param2>/
+where:
+key, keypass - authentication data. Both parameters can contain digits, Latin letters (upper and lower case), "_", "-", "+" and the "dot" symbol.
+function - name of the call
+param1, param2 - parameter, depends on the value of function.
+All parameters are case sensitive. All responses are in text/plain format.
+The list of key and keypass pairs, as well as the list of functions allowed for each of them must be set in the config. Also the port for HTTP-interface must be set in the config.
+6.3.1 GetAddress function - get SOCKS5 port for bc-client. The parameter is an ID in the form of a HEX string. Response: string with port value for SOCKS connects.  
+Example request:
+http://ip:port/3f45td/F324tH3rty+FDyrfh327gter/GetAddress/AABBCCDDEEFF11223344556677889900/
+Example response: "30127"
+6.3.2 The MapPort function is a local port forwarding bc-client. Using the functionality of the PortMapper program, the server should map the local port of the target bc-client, to the server port.  The first parameter is the ID as a HEX string, the second parameter is the target local port. Answer: string with the value of the created server port.  
+Example request for target local port 65521:
+http://ip:port/3f45td/F324tH3rty+FDyrfh327gter/GetAddress/AABBCCDDEEFF11223344556677889900/65521/
+Example answer: "39017"
+6.3.3 GetList function - get the complete list of bc-clients. It accepts no parameters. Response: list of bc-clients data.
+List format:
+<socks-port>||<ID>|<exit-ip>|<online>\r\n
+socks-port - SOCKS5-port, number
+ID - bc-client identifier in the form of HEX-string
+exit-ip - ip-address as a string
+online - can have two values: "Y" - if DataConnection is active and working now, "N" - if DataConnection is not working now and the port is held waiting for bc-client reconnection.
+No extra spaces in the list, no html. There are "\r\n" characters even after the last line.
+
+Example, query:
+http://ip:port/3f45td/F324tH3rty+FDyrfh327gter/GetList/
+Example answer:
+1123|11223344556677889900AABBCCDDEEFF|11.22.33.44|Y\r\n
+29021|44556677889900AABBCCDDEEFF112233|90.12.34.56|N\r\n
+15696|7889900AABBCCDDEEFF1122334455667|121.125.170.1|Y\r\n
+....
+
+Port Mapper
+The application implements the forwarding of a remote port to a local server port.
+The application accepts the following command line:
+PortMapper <socks-ip>:<socks-port> <listen-port> <destination-ip>:<destination-port> <idletime>
+For example, PortMapper 11.22.33.44:21345 45674 12.34.45.67:443
+In this case, PortMapper opens port 45674 (<listen-port>) to accept connections. When receiving a connection on 45674, it immediately initiates a connection to 12.34.45.67:443 (<destination-ip>:<destination-port>) via proxy 11.22.33.44:21345 (<socks-ip>:<socks-port>) and then transmits data from the client to 12.34.45.67:443 and from 12.34.45.67:443 to the client in normal relay mode.
+Thus, it turns out that the client connected to port 45674 actually interacts with 12.34.45.67:443 through the proxy. The address 12.34.45.67:443 itself is hidden from it, it sees only the server port. At the same time the addressee 12.34.45.67:443 sees only the proxy and does not know about the server and does not know about the client joining the listen-port.
+There can be many connections on listen-port.
+The <idletime> parameter specifies the idle time in seconds after which PortMapper should automatically terminate. Idle means a period in seconds during which no bytes are transferred both ways and no connections are accepted. If at least one byte is transferred to one side and at least one connection is accepted, it is not idle.

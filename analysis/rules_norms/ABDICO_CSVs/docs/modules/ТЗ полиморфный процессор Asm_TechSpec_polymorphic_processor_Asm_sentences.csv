@@ -1,0 +1,39 @@
+Sentence
+Technical Specifications
+PREPROCESSOR FOR ASSEMBLY CODE POLYMORPHING
+PURPOSE
+"To develop a preprocessor that takes an Asm listing as input and outputs an Asm listing as output,"
+"in which the code is equivalent to the source code, but differs in instructions and possibly other criteria."
+REQUIREMENTS
+The preprocessor should be implemented as a command-line utility.
+I/O is at the developer's discretion:
+- read from stdin and write the result to stdout
+- command line keys from where to get the file and in which to put the answer
+- combination of 1 and 2
+"There should be a brief help from the utility itself, and a detailed readme in Russian with a description of the program and its modes."
+Any heuristics can be enabled and disabled by command line keys.
+"Any heuristic should have boundary conditions for its application - i.e. recommendations,"
+when it is safe and when it is not.
+"By default, only safe heuristics should be enabled."
+The preprocessor must understand Microsoft Visual Studio 2010 assembly dialect.
+It must work with both 32-bit and 64-bit instructions.
+"If you need to use compilers, translators and other tools, you should provide for decoupling from specific vendors and versions."
+on specific vendors and versions.
+"If it is necessary to run a translator, it should be done by extension points."
+"But in general, it is assumed that the preprocessor will be included in one of the Visual Studio build events."
+REALIZATION
+"The task is largely exploratory, and there are no ready-made recipes."
+The following substitutions can be suggested:
+- augmenting and diluting the code with noise (meaningful instructions that do nothing)
+- relocation of addresses that do not require relocation (or introducing an additional offset into addressing
+by adding parasitic bytes in the code)
+- a sub-option is changing the order of variable allocation on the stack
+- moving a global to the stack and a stack variable to a global
+- moving static data to the .text code section
+"- xor al, al to mov al, 0 and the like"
+- changing the order of functions and independent code sections (you may need to split one file into several)
+- changing the order of data-independent instructions inside one function (if there are no memory barriers)
+- changing the order of data definition
+"- encryption of functions with dynamic decryption: search for the prologue and epilogue of functions, encrypt the body, replace the body with a bunch of db <byte>, substitute the decryption code into the function prologue"
+"Probably, the methods of making the code polymorphic should be based on the work done in the 90s."
+Use getopt.c implementation for command line parsing.

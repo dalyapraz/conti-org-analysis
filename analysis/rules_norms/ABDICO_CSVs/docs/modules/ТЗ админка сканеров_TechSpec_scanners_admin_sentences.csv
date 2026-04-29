@@ -1,0 +1,182 @@
+Sentence
+ADMIN AND BACKEND FOR PASSWORD AND VULNERABILITY SCANNERS
+Technical Specifications
+TITLE
+The system performs two functions:
+1) coordination and management of a distributed network of scanners; distribution of tasks between them
+2) user interface for viewing and uploading data.
+GENERAL INFORMATION
+There are many scanners and they are organized in a distributed network.
+Each scanner needs two things:
+"- input data (source of the list of domains to scan; dictionaries to enumerate, rules, etc.)"
+- where to send the result.
+"To make the scanning efficiency high, the activity of scanners should be coordinated: give each scanner an"
+to each scanner for optimal resource allocation.
+"For this purpose, our backend should keep records: what was given to whom and what was processed by whom."
+In this implementation we will split only the list of domains into sections.
+We do not split dictionaries; it is considered that the module should run the full dictionary for each domain.
+Count on the fact that there are several types of scanners.
+"Accordingly, each type of scanners"
+"needs its own section - the database stores all data in the ""scanner type"" section."
+Current scanner types:
+- RDP scanner (API name: rdp)
+- OWA (Outlook Web Access) scanner (API name: owa)
+- Web site vulnerability scanner (SQLScan) (API name: sql)
+Settings for all scanner types:
+- domain list (TOP Alexa https://s3.amazonaws.com/alexa-static/top-1m.csv.zip is used now; file format and packaging should be the same)
+- scan area size (selected proportionally to the network size) - non-negative integer number
+- time of saving a site for a particular scanner - non-negative integer number of seconds; by default 4 days; further we choose empirically.
+Settings for the RDP scanner (given in response to a request from the scanner - the names of settings and values are given):
+- operation mode: mode (brute|check)
+- password dictionary(s): dict (gzip packed text file)
+- frequency of sending results to the server: freq (number of seconds >= 0; 0 - means immediately when the next password is ready;
+not 0 - not more often than once in X seconds we expect the accumulated pack)
+Settings for OWA scanner:
+"- dictionary of ""login:password"" pairs: dict (gzip packed text file)"
+Settings for SQLScan:
+- rules: rules (text file)
+The size of a chunk (a piece of the common list) should be calculated according to the following criteria:
+"- it should be as small as possible, so that when new unemployed bots enter the network, they will have something to give out."
+"- the processing time of a chunk by one bot should not exceed a certain small value, for example one hour."
+"For example, for a single RDP thread, the worst case time for a single chunk might be 120 seconds."
+"Hence,"
+processing 500
+"""login/password"" combinations will take 500*120=60000 seconds, i.e. almost a day."
+"The ""time to save a section for a particular scanner"" setting should be adjusted to the size of the chunk - it should be approximately equal to"
+one and a half times the time it takes for one bot to traverse one chunk.
+API BACKEND
+API is executed on the basis of HTTP server.
+"By default, the system responds to correct requests with HTTP 200 OK,"
+HTTP 404 Not Found to incorrect requests.
+"In a broader sense, anything less than 200 is considered an invalid state."
+The server should always give the Content-Length header.
+Avoid giving Content-Disposition: chunked or Connection: close.
+All API URLs start with the group /group/clientid/
+where
+group - bot group
+clientid - bot id
+"Before responding to a request, the system must check the formal correctness of the group and id,"
+and reject the request if the parameters are incorrect.
+"Group validation: from 4 to 6 characters; the first 3 characters - lower case Latin, the last 1..3 characters - digits."
+"ID validation: it is a string in upper case, consisting of two components separated by a dot."
+"The first part has the format <name>_XYYYYYYYYYYY, where name is some name that can somehow identify the machine."
+"(computer name or user name, depending on the type of operating system),"
+"X is a symbol denoting the type of system the client is running on (W - windows, L - linux, A - android, M - Mac OS),"
+"YYYYYYYYYY - 3-7 digits containing major-version, minor-version and build of the operating system, if the system has any."
+"(for example, for 6.1 build 7600 it will be 617600)."
+"The second part contains 32 random characters 0-9, A-F."
+An example client id is QWERTY_W617600.11223344556677889900AABBCCDDEEFF.
+GET /group/clientid/scantype/settingname HTTP/1.1
+Get the specific settings by settingname for the given scanner type.
+The response body varies depending on the setting
+GET /group/clientid/scantype/domains HTTP/1.1
+Get the range of domains to scan.
+scantype - scanner type.
+"The system selects the next section of the domain list, marks it as occupied by this scanner."
+with date-time stamp.
+The response is a list of domains as plain text; the line separator is \r\n.
+Content-Type: text/plain
+"If the given segment was occupied by the same client,"
+we give it back to the module.
+"This is a standard situation, which means"
+reloading the module without saving the state.
+"If the given plot is already occupied by another scanner of the same type,"
+"look at the ""save time"" setting; if the former owner of the plot has not vacated it during this time,"
+"and there were no signals from him, the plot is vacated and reassigned."
+"If the plot is really occupied, the answer is 404 Not Found."
+GET /group/clientid/scantype/over HTTP/1.1
+Signal from the scanner that the site has been processed
+"The response is always HTTP 200 OK, regardless of the situation."
+"Check if the section was actually behind this module, if yes - mark it as processed."
+If not - write an error in the log.
+The body of the response is the same as for the /domains request
+"The next free plot is selected, assigned to the module and given in the response."
+"If there are no free sites, the code 404 is given."
+GET /group/clientid/scantype/dict HTTP/1.1
+Request a dictionary for the given scanner type.
+The response is the dictionary as it is loaded in the admin.
+Content-Type: text/plain or application/gzip
+POST /group/clientid/81 HTTP/1.1
+Data dummy by the scanner
+Request body - multipart/form-data container with the following fields:
+data - binary data up to 32k in size - this is the actual data to be parse
+"source - UTF-8 string up to 4096 bytes long - it contains an indication of the scanner type (for example, ""OWA Passwords"")."
+"Any other fields in the parcel are ignored, but are not considered an error."
+"By default, data receives UTF-8 text in the following format:"
+resource|login|password/n
+The end of the string can be either Unix (\n) or DOS (\r\n).
+resource is where the password goes (e.g. URL.
+Or messenger type.
+Or host IP address.
+ITD).
+login
+password - I see
+In such a record there can be additional fields with separator | (vertical line).
+The server should respond with
+HTTP 200 OK
+Content-Type: ...
+Content-Length: ...
+/1/
+CONTROL PANEL
+The control panel should contain the following sections:
+* dashboard
+* scanner settings
+* scanner data
+On the dashboard we can see a summary of the scanners' activity since the last time the domain list was updated.
+For each scanner we can see the following information:
+"- pie charts with the percentage ""processed/unprocessed"""
+- scan area size
+- date-time of the last update of the list of domains
+- total unique bots worked by this scan type
+- total logins/vulnerabilities found
+"In the scanner settings, for each scanner type you can download data for that scanner:"
+- domain list
+- dictionaries
+- whatever else is available.
+"When you update the list of domains or dictionaries, the status of issued plots for this scanner is cleared,"
+"all statistics (in the dashboard) are cleared, and issuance of plots starts again."
+"Therefore, when saving take into account the case of no changes in the configuration, so as not to invalidate the results of the network."
+"In the ""data from scanners"" section, there is a separate tab or page for each scanner type."
+On it we see a table with the following fields
+- date-time
+- clientid
+- group
+- IP address
+- received data
+Fields can be sorted and filtered.
+"as well as the button ""download dump""."
+By the button we get data for the whole history of work.
+***
+"[10:49:01] <A> Report interval, seconds hint The module will report every N seconds about its status"
+"[10:49:35] <A> Fetch request, seconds hint The module will upload the vulnerabilities found to the server every N seconds"
+[10:50:44] <A> Rules rename it to Scan Rules.
+[10:51:11] <A> hint These are the scan rules for the module.
+XML format is
+[10:52:36] <A> <rules>
+<rule>
+<name>rule name</name>
+<type>time|diff (one of these two options)</type>
+<value1>probe value 1</value1>
+<value2>probe value 2</value2>
+<value3>probe value 3</value3>
+</rule>
+...
+<rule>
+...
+</rule>
+</rules>
+[10:52:52] <A> CHANGE IT ONLY WHEN YOU KNOW WHAT YOU ARE DOING!
+[10:54:04] <A>
+Domains hint These are the Internet domains to scan
+[10:54:22] <A> Format is: plain text file; one domain per line; line separator is \n
+[10:54:26] <A> Example:
+[10:54:29] <A> www.site.com
+[10:54:33] <A> domain.com
+[10:54:34] <A> etc
+[10:55:16] <A> Thead (1..10) rename to Scan threads number (1..10)
+"[10:56:31] <A> Time threshold (0..40) rename to Time threshold for time difference rules, seconds (0..40)"
+[10:58:35] <A> hint Time difference rule finds vulnerability by comparing injected and non-injected page loading time
+[10:59:05] <A> Threshold (0..1000) rename to Char threshold (0..1000)
+(number of characters)
+[11:01:09] <A> hint This value determines injection success for difference rules.
+When the injected page differs from the non-injected page by this number of characters

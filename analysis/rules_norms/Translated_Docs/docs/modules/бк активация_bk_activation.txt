@@ -1,0 +1,63 @@
+Finalization objectives:
+1. To reliably cut off AVs and researchers from receiving the load
+2. Remove behavioral detections by interacting with users
+The idea is to manually activate each bot by the operator.
+
+Implementation
+
+0. A switch "Manual payload confirmation" is added to the group settings.
+If it is off, everything works as before.
+If it is on - as described below.
+The switch belongs to the kernel, i.e. it is common for all protocols.
+
+The corresponding macro-switch is added to the loader/bot build.
+
+1. Show loaders that have not yet been given a load in the list of bots in the admin.
+In the identifier field, show the key passed by the loader to the admin (see below).
+2. Add a button "Confirm payload" - in English "Confirm payload" (you can use icons).
+Without pressing this button by the operator, the load is not given to the loader.
+3. Add the "Deny payload" button. When this button is pressed, the IP address goes to the list of hanipots, the load is not given.
+4. Loader should interact with the user at startup - draw a window that asks for a serial number.
+The length of the serial number - 8 characters, letters and numbers (if there are no objections from clients and developers on the length and format).
+Window class, window text should either be re-generated from build to build (to avoid string detection),
+or be as indistinguishable as possible (such a class should be used by a lot of service windows in the OS).
+The key value is validated by character class and length.
+Until the key is received, the locker does nothing.
+5. The loader must also be able to accept this key from the command line. In this case, the request window is not displayed.
+6. The key is passed by the loader in the Cookie field in clear form, the cookie name is arbitrary.
+Accordingly, loader:
+- server validation is re-entered for proto2; the server encrypts either the load or arbitrary text in any Set-Cookie with the group key.
+The loader considers the server valid if the cryptoAPI decryption function produced a valid status.
+- finds the first validated server;
+- knocks on it in an infinite loop with a random interval from 3 to 15 minutes, ignoring all responses 400, 404, 500, etc.
+If the server stops responding (no connection/response), it goes to search for servers.
+
+Backend:
+- says 404 Not Found to all incomprehensible load requests from UNKNOWN IP addresses.
+If a bot(s) not from the Honeypots subnet already resides at that address, the load is given.
+- searches for a Cookie with a value length equal to the length of the key (8).
+- considers the value of this Cookie as the identifier of the loader, and draws this request in the list of bots.
+- after operator confirmation and issuing the load, the backend pairs the bot with the loader.
+To do this:
+- the bot at *first tap* must send the md5 of the key in any Fake Cookie.
+Accordingly, the loader must pass the key to the bot's process (via command line or any inter-process communication other than writing to a file).
+- The backend searches for a loader with the same IP address that has a hash of the key that matches the value of any Fake Cookie.
+If the match does not happen for some reason, the bot is considered a hani with all the consequences.
+- The bot does not change its current scheme for generating the main identifier.
+The key passed by the loader is used once at the moment of the first bounce for validation of the upload and for matching the loader and the bot.
+
+
+At the time of the first bounces, we already have the real IP address of the loader/bot.
+We introduce additional protection:
+- The bot ID is bound to the address.
+If the browser does not give the real IP, the response is 404.
+If a bot bounces an existing ID from a left IP address, the answer is 404.
+- Hani now get a 404 Not found response to any requests.
+
+Work of operators
+
+Operators themselves generate a one-time serial list for each upload.
+If needed, we can help you write a small script generator.
+From this list.
+- dj on the phone dictates a number and crosses it off the list.
+- The operator validates all incoming calls against this list.

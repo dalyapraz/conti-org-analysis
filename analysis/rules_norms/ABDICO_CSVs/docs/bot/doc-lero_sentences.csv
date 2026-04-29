@@ -1,0 +1,538 @@
+Sentence
+# Server side
+1.
+The task of the server part is to receive HTTP requests and respond to them.
+In the process of work it is necessary to interact with
+PostgreSQL DBMS.
+"DBMS can be physically located on another machine, so it is necessary to provide for such a variant of the system deployment: several server applications can work on different physical servers and one DBMS can work on the same server."
+system: several server applications may run on different physical servers and one DBMS on a single physical server.
+"1.1 The database stores information about clients, files for them (command /5/, paragraph 3.3) and events related to clients."
+"Each client has a number of inherent properties: Group Tag, client Id, operating system, ip address, geoip (country),"
+"Importance, userdefined, when it was registered, when it was last online (command /0/, paragraph 3.1)."
+"Importance and userdefined are two integer numeric parameters (negative numbers, positive numbers, and zero),"
+are set or changed by other server applications or by the server administrator/operator.
+2. Working with the server is done through HTTP requests.
+They can be either GET or POST.
+"There can be any number of reverse-proxy, load-balancer and DNAT between the server and the client."
+"Thus, the only way to know the ip-address of the client that sent the request is the client-self-ip-address parameter"
+in the /0/ command (paragraph 3.1).
+"There are no other ways, will not be and cannot be in principle."
+"2.1 Each request contains three components in the URI, separated by the ""/"" character"
+"``group-tag, client id, command code."
+"/<group-tag>/<clientid>/<ccode>/,```''"
+"Where group-tag is the group tag,"
+"clientid - client id,"
+ccode - command code.
+2.1.1
+The group tag is an arbitrary string consisting of characters (a-z) and numbers (0-9).
+The parameter is case insensitive.
+2.1.2 Client Id is a string consisting of two dot-separated components.
+"The first part has the format <name>_XYYYYYYYYYYY, where name is some name that can somehow identify the machine."
+"(computer name or user name, depending on the type of operating system),"
+"X is a symbol denoting the type of system the client is running on (W - windows, L - linux, A - android, M - Mac OS),"
+"YYYYYYYYYY - 3-7 digits containing major-version, minor-version and build of the operating system, if the system has any."
+"(for example, for 6.1 build 7600 it will be 617600)."
+"The second part contains 32 random characters 0-9, A-F."
+An example of a client id is ```QWERTY_W617600.11223344556677889900AABBCCDDEEFF```.
+The parameter is case insensitive.
+2.1.3 The command code is a number between 0 and 999.
+"2.2 The fourth and subsequent components in the URI, as well as the request and response body, depend on the command code"
+"2.3 A cadle server response can be with the following HTTP codes: 200, 403, 404"
+# 3.
+Commands
+## 3.1 /0/ - initialization of the /1/ command cycle.
+Accepts 4 additional parameters:
+"* system-version - operating system name with version, service pack and architecture (32, 64 bit)"
+"* client-version - client version, arbitrary number greater than 1000"
+* client-self-ip-address - client's own external ip-address (ipv4 and ipv6) in string representation.
+It is obtained by the client itself by means chosen at the discretion of the developer of this client.
+* token-string - a random string from 16 to 32 characters long.
+It can contain large and small English characters and digits from 0 to 9.
+Case sensitive
+* devhash - hardware identifier.
+"An arbitrary HEX string (characters 0-9, A-F) representing some 256-bit hash,"
+which depends on the hardware or operating system the client is running on.
+Query format:
+```/<group-tag>/<clientid>/0/<system-version>/<client-version>/<client-self-ip-address>/<devhash>/<token-string>/```''
+The server response is a file (content-type: binary) of the following content:
+```/1/<group-tag>/<clientid>/<token-string>/<binary-content-length>/\r\n
+<binary-content>/\r\n
+<server-sign> ```
+token-string - string copied from GET-request
+binary-content-length - length of binary-content block in bytes written as a string.
+binary-content - binary data block
+server-sign - digital signature of the server
+", it includes the content of the response from the first byte to the second translation of the string \r\n (characters \r\n are included in the digital signature)."
+"If the client is not in the database when the command is received, it must be added to it, if it is, the information in the database must be added to it."
+"(group tag, ip address, client version, operating system) must be updated."
+File selection.
+"The binary data block in this case is the extcfg file, which is selected according to the same rules as in the /5/ command."
+If
+Receiving the /0/ command means that the client is online from the current moment.
+It is possible to receive several times in a row
+command /0/ from one client - this is a normal situation.
+## 3.2 /1/ - issuing a command to the client.
+It has only one additional parameter -
+* token-string (which will be duplicated in the response).
+It is allowed to process this command only if the last time the /0/ command came from this client was not more than 24 hours ago (the time can be changed via the server application config file).
+"not more than 24 hours ago (the time can be changed through the server application config file),"
+otherwise the server should respond with HTTP 403.
+The format of the response to this command:
+```/<incode>/<group-tag>/<clientid>/<token-string>/<cmd-id>/\r\n
+<command-params>/\r\n
+<server-sign> ```
+* incode - code of the issued command
+* token-string - string copied from command parameter /1/ of GET-request
+"* cmd-id - unique identifier of the issued command, an arbitrary string with large and small English characters, digits from 0 to 9 and symbols -,+,dot,#."
+Case sensitive.
+* command-params - an arbitrary string with parameters (must not contain the characters \r\n as it means the end of the string).
+"* server-sign - digital signature of the server, it includes the content of the response from the first byte to the second translation of the string \r\n (\r\n characters are included in the digital signature)."
+## 3.3 /5/ - issue a file to the client.
+It has only one additional parameter - file name.
+The file name is case insensitive.
+"In response to this command, the server should output a file (content-type: binary) intended for this client."
+"The internal storage of the server application (database) should contain an arbitrary number of files,"
+each file can have a filter by the following parameters:
+"group filter (specified by a list of like-patterns separated by spaces),"
+"excluding group filter (specified by a list of like-patterns separated by spaces, if there is at least one match from this list, the file is considered not suitable for the client),"
+"geoip,"
+"operating system,"
+"importance (start-to-finish range),"
+"userdefined (start-to-finish range),"
+"client id (strict match),"
+priority.
+Priority is an arbitrary positive integer.
+"The group tag can be specified not only as a strict group name, but also as a like-pattern from the SQL language."
+The server can have several files with the same name but with different filters.
+"If several files are suitable for the client at once, the one with a higher priority value in the filter than the others should be given to the client."
+than the others.
+The database must not allow specifying several files with the same priority.
+"If there is no single file satisfying the conditions for a given client, the server should respond with HTTP 404."
+"If there is a request from a client from which there has never been a request /0/, it should check only the group tag."
+(since other information is not in the database yet).
+## 3.4 /10/ - receiving a report from the client about the command executed by him.
+Request format for the /10/ command:
+```/<group-tag>/<clientid>/10/<incode>/<cmd-id>/<result-code>/```.
+incode - code of the executed command
+cmd-id - identifier of the executed command.
+result-code - result code of the executed command.
+Number from 0 to 999
+"When receiving this command, the command that is in the queue of this client should be removed from the queue."
+REGARDLESS of the result-code sent by the client.
+"If there is no command in the queue with the specified code and identifier specified in the incode and cmd-id parameters (both values must be checked), it is considered to be a non-state situation."
+"check of both values is mandatory), it is considered an abnormal situation and should be recorded in some log or other entity that can be viewed later."
+"entity, which can be viewed later by the server administrator."
+"The response to this command is always the same HTTP 200, Content-type: text/plain, response body content ""/1/"""
+## 3.5 /14/ - saving a key-value pair in the database.
+To allow the administrator or operator to view these values.
+Query format:
+``/`/<group-tag>/<clientid>/14/<name>/<value>/0/```''
+* name - key.
+"Arbitrary string with English upper and lower case letters, numbers and dot, ""+"" and ""-"" symbols."
+* value - value.
+"Arbitrary string, all special characters must be urlencoded."
+* The third parameter is always zero.
+"The response to this command is always the same HTTP 200, Content-type: text/plain, response body content ""/1/"""
+## 3.6 /15/ - reading a key-value pair from the database.
+```/<group-tag>/<clientid>/15/name```.
+Result:
+HTTP 200 -- body: value
+HTTP 204 -- value not found
+## 3.7 /23/ - issuing a config to the client.
+Has only one additional parameter - the version of the current client config.
+The version is a number from 0 to 2^32-1.
+Example of client request:
+``/<group-tag>/<clientid>/23/<current-config-version>/```.
+current-config-version - the current version of the config.
+Example server response:
+```/23/<group-tag>/<clientid>/<config-version>/<binary-content-length>/\r\n
+<binary-content>/\r\n
+<server-sign> ```
+binary-content - binary content of the config
+config-version - config version in binary-content
+binary-content-length - binary-content length in bytes written as a string
+The internal storage of the server application (database) must contain an arbitrary number of configs.
+"Like a file, a config has an inherent parameter - version - an arbitrary numeric value that is set by the administrator or higher-level logic."
+Each config can have a filter on the following parameters:
+"* group tag (can be set as a like-pattern from SQL language),"
+"* geoip,"
+"* operating system,"
+"* importance (start-to-finish range),"
+"* userdefined (range start to end),"
+* client id (strict matching).
+"The server may have several configs with the same version, but with different filters."
+All configs with a version equal to or less than the one specified by the client in the request are discarded.
+The client can be given a config with a strictly higher version than the one he specified in the request.
+"If several configs are suitable for the client at once, the one with a version greater than the others must be given."
+The database must allow storing configs with the same version.
+"If there are no files that meet the conditions of the client, the server must respond with HTTP 404."
+"If there is a request from a client from which there has never been a request /0/ (or it came long ago), the server responds immediately with HTTP 403, without any checks."
+## 3.8 /25/ - giving the client a link.
+The command has no parameters.
+Example of client request:
+``/`/<group-tag>/<clientid>/25/<token-string>/```.
+token-string -identical to the parameter in the command /1/
+Example of server response:
+```/25/<group-tag>/<clientid>/<token-string>/\r\n
+<link>\r\n
+<server-sign> ```
+The internal storage of the server application (database) must contain an arbitrary number of links.
+A link is an arbitrary string built by the rules of URL.
+"Like files and configs, a link has an inherent parameter - validity period in minutes, from the moment it is added by the administrator or higher logic."
+Each link can have a filter based on the following parameters:
+"* group tag (can be set as a like-pattern from SQL language),"
+"* geoip,"
+"* operating system,"
+"* importance (start-to-finish range),"
+"* userdefined (range start to end),"
+* client id (strict matching).
+"The server can have several identical links, but with different filters."
+"When selecting a link for a client, all expired links must be discarded."
+"If several links are suitable for the client at once, the one whose relevance expires later than all the others (relevance, i.e. date-time of addition + expiration date in minutes) should be given to the client."
+"If there is no link satisfying the conditions of the given client, the server should respond with HTTP 404."
+"If there is a request from a client from which there has never been a request /0/ (or it came a long time ago), the server responds immediately with HTTP 403, without any checks."
+# 3.9 /63/ - receiving module data.
+The command has the following parameters:
+"* module name,"
+"* ctl to the module,"
+"* the resulting ctl string,"
+"* auxiliary tag,"
+* ctl_OutData.
+"The resulting ctl string, auxiliary tag and ctl OutData are optional."
+"The ""ctl_OutData"" parameter is a block of arbitrary binary data and is passed in the body via multipart/form-data, the name of the parameter inside multipart/form-data is ""noname""."
+"If ctl_OutData is present in the request, the request is passed by POST method."
+Example client request
+```/63/<module name>/<ctl>/<ctl-result-string>/<aux-tag>/```''
+"* module name - the string consists of English letters only, maximum length 64 characters."
+It is assumed that there will be an index on this column in the table.
+"* ctl - the string consists of English letters and digits only, maximum length 64 characters."
+* ctl-result-string - string in base64 format.
+The backend should save this string in the base in decoded form.
+Maximum length after decoding is 1024 characters
+"* aux-tag - auxiliary tag, the string consists of English letters and numbers only, maximum length 128 characters."
+"The field is necessary for easy search in the table, it is assumed that this column in the table will have an index."
+* ctl_OutData - is passed in the body of POST-request and contains a block of arbitrary binary data.
+The maximum size is 32 MB.
+"The server response is either always 200 - ""/1/"" or 403 if the client is not in the database or has sent /0/ too long ago."
+"The server must store all information received via the /63/ command, namely:"
+"* date time,"
+"* ctl,"
+"* ctl,"
+"* ctl-result-string,"
+* aux-tag
+* ctl_OutData.
+"All information should be stored in separate columns for selection and filtering (except for ctl_OutData, of course, a column with a binary data type is sufficient)."
+## 3.10 /64/ - event report in module.
+The command has the following parameters:
+"* module name,"
+"* event name,"
+"* information about the event,"
+"* auxiliary tag,"
+* event data.
+"Event information, auxiliary tag and data are optional."
+"Event information is a UTF-8 encoded string with a maximum length of 64 KB (bytes, not characters)."
+"The data parameter is a block of arbitrary binary data and is passed in the body via multipart/form-data,"
+"The name of the multipart/form-data parameter is ""data"" and the name of the event information parameter is ""info""."
+"If the request contains data or event information, the request is passed using POST method."
+An example of a client request
+```/64/<module name>/<event-name>/<aux-tag>/```''
+"module name - the string consists of English letters only, maximum length is 64 characters."
+It is assumed that there will be an index on this column in the table.
+"event-name - the string consists of English letters and digits only, maximum length 64 characters."
+aux-tag - auxiliary tag
+", the string consists of English letters and numbers only, maximum length 128 characters."
+"The field is necessary for the convenience of searching in the table, it is assumed that there will be an index on this column in the table."
+"The server response is either always 200 - ""/1/"" or 403 if the client is not in the database or he sent /0/ too long ago."
+"The server must store all information received via the /64/ command, namely:"
+"* date time,"
+"* client name,"
+"* event name,"
+"* info,"
+* aux-tag
+* data.
+"All information should be stored in separate columns to allow selection and filtering (except data, of course, for which a column with a binary data type is sufficient)."
+# 4.
+Each client must have its own command queue.
+Commands are added to the queue by the operator or by certain mechanisms of the server application.
+Commands are removed from the queue only when the client sends a report of their execution using the /10/ command.
+"Until the report arrives, the command will remain in the queue, EVEN if it causes the client to request the same command multiple times."
+several times for the same command.
+"When a report of execution is received, the command must be removed from the queue, regardless of the"
+the result-code sent by the client.
+Each command has two attributes:
+* command code (a number from 0 to 999)
+* command parameter - ANSI string of arbitrary length.
+# 5.
+The digital signature of the server
+which appears in the response of some commands is ECDSA 256bit signature.
+"It is not used in the current version, it should be replaced by the string ""1234567890""."
+# 6 DataPost
+- is a separate version of the server application that accepts ONLY the /60/ command and nothing else.
+6.1 /60/ - not used in the current version of the system
+# 7 IdleCommands functionality.
+"The server must provide some API (in the form of stored procedures) that will create ""waiting commands""."
+The waiting commands functionality implies that there is a group of commands that initially has no destination clients.
+Each group of waiting commands has the following parameters:
+"* command code,"
+"* command parameter,"
+"* number of commands,"
+* geoip filters (up to 10 countries)
+* operating system filter
+* group filter.
+"The filter can be specified as a like-pattern from SQL language, or several like-patterns separated by spaces"
+* group exclusion filter.
+"The filter can be specified as a like-pattern from SQL language, or several like-patterns separated by spaces."
+"If a client group tag matches at least one pattern listed in this parameter, the wait command is considered as NOT matching it."
+The consistency of this parameter with the previous parameter is ensured by the administrator.
+* filter importance (start and end of range)
+* user defined filter (beginning and end of the range).
+"Each incoming request /1/ of a client, if it has no outstanding commands in the queue, is checked against the filters of ""waiting commands"" groups, and those groups from which commands were previously issued to this client must be excluded."
+"If such filters are found, the first filter is taken (if there is more than one), the command counter of this group is reduced by one, and then the command code and its parameter are added to the command queue of this client."
+"Important requirement: one client from each group of ""waiting commands"" can be issued a command only once."
+"It is also necessary to provide functionality for managing groups of ""waiting commands""."
+Final functionality (stored procedures):
+1. add a group
+2. delete a group
+"3. get the list of groups (each group should have all parameters in the list, plus the number of remaining teams in the group and the original number of teams in the group)"
+4. increase the number of commands (take care of the atomicity of the operation and conflict resolution when the number became negative due to simultaneous admin and backend operations)
+5. change the command parameter (but not the command code)
+6. add country to filters (do not remove it)
+# 8 server management API.
+The server on a separate port provides API for controlling some server functions.
+The API port should be configured through the server config.
+8.1 API access occurs
+"via HTTPS protocol, regardless of the server port number."
+HTTP request can be either GET or POST.
+POST-request is used if one of the API arguments is represented as a binary data block.
+Access control is realized by two parameters: apikey and apikeypass.
+8.1.1
+The API request format looks like this:
+``/`/<apikey>/<apikeypass>/<function>?param_name1=<param1>&param_name2=<param2>.....`` ``
+"If the function accepts some binary block of data, the request is done by POST method and the data block is passed inside multipart/form-data with the name ""bdata"""
+"function - function name, the string is case-sensitive, can contain capital and small English letters and numbers"
+8.2 Each apikey has the following attributes:
+"list of functions it is allowed to perform,"
+the range of ip-addresses from which it is allowed to access.
+The range is specified in CIDR format.
+"For example, 1.2.3.4/24 - range from 1.2.3.0 to 1.2.3.255, 1.2.3.4/32 - single ip address, 1.2.3.4/0 - any ip address."
+The list of all apikey and apikeypass with their settings (list of functions and ip range) should be set through a special database table
+"8.2.1 The IP address of the request initiator is extracted from the HTTP header ""X-Forwarded-For""."
+"If this header is not present, the request shall be discarded with HTTP code 403."
+## 8.3 API Functions
+### 8.3.1 GetGroupData - get group information.
+Accepts one parameter: time period in minutes.
+The function should produce a report on group activity for the specified period of time up to now.
+Data about a client is included in the report if he had activity in the specified period of time.
+The report by groups is a text file.
+Group data format :
+`` `` <group> <client_count> <first_created>````
+* group - group name
+* client_count - number of unique clients
+* first_created - time of the first registration of the earliest client in this group.
+Time format: epoch time.
+"The lines with information about groups are separated by the pair ""\r\n""."
+For example:
+```qwerty1 151 1451278532
+test 12 1358237562
+test2 1005 1428237531
+test111 100 1438257732```
+"The function in case of success responds HTTP 200 with a text file with group data, otherwise 403 (if parameters are not specified, wrong format, wrong apikey/apikeypass data or an error somewhere)."
+### 8.3.2 UploadFile - upload file to server.
+Accepts parameters in the following order:
+* id - number (if a specific file is addressed for replacement )
+* filename
+* group -- group.
+"(if not specified, ""*"")"
+"* sys_ver (if not specified, ""*"")"
+"* country (if not specified, ""*"")"
+"* client_id (if not specified, ""0"")"
+"* importance_low (if not specified, ""0"")"
+"* importance_high (if not specified, 100)"
+"* userdefined_low (if not specified, 0)"
+"* userdefined_high (if not specified, 100)"
+* priority
+* bdata -- the contents of the file inside multipart/form-data
+"Before loading a file into the database, the file priority is calculated as follows: the maximum priority value in the table is calculated and one is added."
+"The function in case of success responds to HTTP 200 /1/, in the opposite case 403 (if parameters are not specified, wrong format, wrong apikey/apikeypass data or an error somewhere)."
+### 8.3.3 UploadConfig - upload config to the server.
+* id -- if you need to replace the link
+* version version of the config
+* group
+"* country (if not specified, ""*"")"
+"* client_id (if not specified, 0)"
+"* importance_low (if not specified, 0)"
+"* importance_high (if not specified, 100)"
+"* userdefined_low (if not specified, 0)"
+"* userdefined_high (if not specified, 100)"
+* sys_ver
+* bdata -- the contents of the config inside multipart/form-data
+"The function in case of success responds HTTP 200 /1/, in the opposite case 403 (if parameters are not specified, wrong format, wrong apikey/apikeypass data or an error somewhere)."
+### 8.3.4 UploadLink - upload link to server.
+* id -- if the link needs to be replaced
+* expiry_at -- unixtime (integer) - link expiration time
+* sys_ver -- system version
+* group -- group
+* country -- country
+* client_id (0 if not specified)
+"* importance_low (if not specified, 0)"
+"* importance_high (if not specified, 100)"
+"* userdefined_low (if not specified, 0)"
+"* userdefined_high (if not specified, 100)"
+* bdata -- full link text inside multipart/form-data
+"The function in case of success responds to HTTP 200 /1/, in the opposite case 403 (if parameters are not specified, wrong format, wrong apikey/apikeypass data or an error somewhere)."
+### 8.3.5 PushBack - adding a command to client's queue
+* cid - string identifier of the client.
+The part of the identifier after the dot.
+"Например, 4D2873436FA2371F319DD55C147DC9B2"
+"* code - command code, number"
+"* param - command parameter, string."
+"When transmitted via a link in GET, it can be in urlencode format"
+"The function in case of success responds HTTP 200 /1/, if non-existent cid - 404."
+"Otherwise 403 (if parameters are not specified, wrong format, wrong apikey/apikeypass data or an error somewhere)."
+### 8.3.6 GetFilesList - get a list of all files with all parameters.
+"The function, if successful, responds with HTTP 200 text/plain listing all files that are in the table with files."
+"One line - one file, line delimiter - ""\r\n""."
+The intra-line parameter separator is tab (9).
+"Parameters are in the following order: id, name, priority, group, geo, importance_low, importance_high, system, userdefined_low, userdefined_high."
+"Otherwise 403 (if no parameters are specified, wrong format, wrong apikey/apikeypass data or an error somewhere)."
+### 8.3.7 DeleteFile - delete file
+* id - identifier of the file to be deleted
+"The function in case of success responds HTTP 200 /1/, if id does not exist - 404."
+"Otherwise 403 (if parameters are not specified, wrong format, wrong apikey/apikeypass data or an error somewhere)."
+### 8.3.8 GetLastEventData - get last data from specified module and event
+* cid - string identifier of the client.
+The part of the identifier after the dot.
+"Например, 4D2873436FA2371F319DD55C147DC9B2"
+* module - module name
+* event - event name
+"The function in case of success responds HTTP 200 and octet-stream with the contents of the data sent last time for the specified module and event, if the cid does not exist - 404, if there is no event satisfying the requirements (module, event) - 404, if there is an event but no data, then 204."
+"Otherwise 403 (if parameters are not specified, wrong format, wrong apikey/apikeypass data or an error somewhere)."
+### 8.3.9 GetOnline - get a list of all clients by last activity.
+* period - activity period in seconds.
+"If successful, the function responds with HTTP 200 text/plain listing string identifiers of clients that were active during the specified period of time."
+"One line - one identifier, line separator - ""\r\n""."
+"In the identifier, specify only the part after the dot."
+"Otherwise 403 (if parameters are not specified, wrong format, wrong apikey/apikeypass data or an error somewhere)."
+### 8.3.10 GetLastActivity - get time of last client activity
+* cid - string identifier of the client.
+The part of the identifier after the dot.
+"Например, 4D2873436FA2371F319DD55C147DC9B2"
+"The function in case of success responds HTTP 200 and text/plain in which EPOCH-time with the last activity of the specified client is in the form of a string, if cid does not exist - 404."
+"Otherwise 403 (if parameters are not specified, wrong format, wrong apikey/apikeypass data or an error somewhere)."
+### 8.4 All API activity should be logged.
+"The following information should be stored: date-time, apikey, address searched, function."
+"Only store information about successfully executed requests, all other requests should be logged to the general text log of the server."
+# 9 Client log.
+Each client should have its own activity log.
+This activity log should include information about all commands to the server except for the command /1/.
+It should also contain information about all commands issued to the client.
+"If a command from commands_idle groups was issued, the commands_idle group identifier must be stored."
+The following information must be stored in the activity log:
+* date time
+* client_id
+"* command code, incoming or outgoing."
+* Additional information in the form of a string.
+**
+No information for outgoing commands.
+"** When receiving a /10/ command, the code of the executed command should be stored in this field."
+"** When a command /1/ is ""idle"", the code of the issued command must be saved in this field."
+**
+For commands_idle this will be the group identifier.
+**
+For /63/ this will be the module name and ctl (with a space).
+**
+For /64/ it will be the module name and event name and aux-tag (separated by a space).
+**
+For /23/ it will be the version of the issued config.
+**
+For /5/ it will be the id of the issued file.
+**
+For /25/ it will be the link text.
+**
+For /10/ it will be the id of the executed command (cmdid) and the result code.
+#10 Importance.
+The Importance mechanism should be able to generate an integer value from 0 to 100 inclusive based on client related events.
+"## 10.1 Each event has three Importance value modifiers: preplus, mul, postplus."
+All are of type float with a precision of at least 4 decimal places and cannot take the value null and .
+"Preplus and postplus can take values from -100 up to and including 100, mul can take values from 0 up to and including 100."
+The event also has a class and an additional class-dependent parameter.
+"There can be any number of events with the same class, but no two events can have the same class and additional parameter."
+An event can be triggered only once for each client.
+"After the event is triggered, the importance value is recalculated using the following formula:"
+newimportance = (oldimportance+preplus)*mul+postplus
+"If newimportance is less than 0 or more than 100, it is assigned a value of 0 or 100 respectively."
+"Also, before saving the newimportance value to the database, it is rounded to an integer value using the standard rounding function."
+"In addition, each client must have a parameter (flag) that prohibits automatic change of importance value."
+"By default, it is unchecked for all of them."
+The event list is global for all clients.
+"It should be changed via DBMS, not via configs."
+"When removing an event from the list (table) with events, no recalculation of importance takes place."
+"The event list itself is changed rarely (not more than once every 30 minutes), so caching of the event list is allowed."
+Regularity of updating should be set through the config.
+"## 10.2 In the current implementation, the server should support the following event classes"
+"### 10.2.1 Class - ""online""."
+Command /0/ .
+Additional parameter - number of received commands /0/ .
+"For example, the following events are specified:"
+"id1 - online(1), preplus=xx, mul= xx, postplus=xx"
+....
+"id16 - online(4)), preplus=xx, mul= xx, postplus=xx"
+....
+"id23 - online(7)), preplus=xx, mul= xx, postplus=xx"
+"Thus, at the first received command /0/ the event ""id1"" will be triggered,"
+"at the second received command the ""id1"" event will NOT work,"
+"the third command will not work either,"
+"and at the fourth received command /0/ the event ""id16"" will be triggered,"
+"at the fifth and sixth /0/ commands the ""id1"" and ""id16"" events will not work,"
+"at the seventh received command /0/ event ""id23"" will be triggered."
+"If the parameter is 0 or null, it is treated as one."
+"### 10.2.2 Class - ""age""."
+Time since registration.
+Additional parameter - the number of minutes elapsed after the very first /0/ command that caused the client to be registered in the database.
+"The number of minutes is compared according to the ""greater than or equal to"" ("">="") operation."
+The event is checked only when the /0/ or /1/ command is received.
+"For example, the following events are available:"
+"id2- age(30), preplus=0, mul= 1.0, postplus=10"
+....
+"id15- age(90), preplus=0, mul= 0.2, postplus=0"
+"Thus, when the command /0/ or /1/ is received and 37 minutes have passed since the client was registered, the ""id2"" event is triggered."
+"Then if when receiving /0/ or /1/ it turned out that 123 minutes have passed, then the ""id15"" event will be triggered."
+"As a result, the value of importance will be equal to 2 (at the beginning of importance is 0, then after ""id2"" will be (0+0)*1+10 = 10, and then after ""id15"" will be (10+0)*0.2+0=2)."
+"Another variant is also possible: at some moment when receiving the command /0/ or /1/ it happened that 201 minutes have passed since the moment of client registration,"
+"then both ""id2"" and ""id15"" events will be triggered simultaneously."
+"In this case we will get simultaneous triggering of both events, the same calculations and importance = 2."
+"### 10.2.3 Class - ""geo""."
+Country.
+"Additional parameter - country name, string."
+The event is checked only when the /0/ command is received.
+"### 10.2.4 Class - ""devhash_dup""."
+There is another client with devhash exactly the same.
+The optional parameter is not used.
+The event is checked only when the /0/ command is received.
+The event is triggered if when receiving the /0/ command and saving it to the table it turns out that another client has the exact same devhash.
+"### 10.2.5 Class - ""command_complete""."
+Successful execution of an outgoing command.
+Additional parameter - number of commands executed.
+The event is checked only when the command /10/ is received.
+"If the parameter is 0 or null, it is treated as one."
+"### 10.2.6 Class - ""geo_change""."
+Country change.
+There are no additional parameters.
+The event is checked only when the /0/ command is received.
+## 10.3 For each triggered event there must be a record with the triggered event identifier in the log of the searched client (item 9)
+class online - individual counter
+"age class - global, the time is counted from the time specified in the created_at column."
+class geo - no counter is needed
+devhash_dup class - no counter needed
+command_complete class - individual counter
+## 11 Mechanism of auto addition of commands to the client
+Implement the mechanism of auto addition of commands to the client when receiving reports on events (command 64).
+"The auto-add trigger should respond to the module name, event name and info field, and when they occur, the server should add a command with the specified code and parameter."
+The info field should be checked by regular expression.
+"Thus, if the info field contains ""qrrrrr45werty"", the check by ""r45"" should yield a positive result, and the check by ""^r45"" a negative result."
+"Among other things, the trigger must contain an integer parameter limiting the minimum frequency of triggering this trigger on each particular client."
+The parameter is specified in seconds.
+"If it is equal to 0, there is no limitation."
+"For example, if it is equal to 300 seconds, then if this client's trigger was activated 180 seconds ago, the command should not be inserted into the queue."
+The auto-add list should be managed through a table.
+"The table can be cached, the regularity of cache updates should be set through the config in seconds."

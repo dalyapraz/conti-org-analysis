@@ -1,0 +1,48 @@
+Go here https://www.torproject.org/download/download.html.en
+
+
+Download ATTENTION Expert Bundle Unzip it, go to the Tor directory and run tor.exe.
+
+After a few seconds it will come to 100% Done - close this window and go further according to the manual.  
+
+-----------------------------------------------------
+
+Now you can specify the socket in jabber (you can also specify it in the browser if you want).
+127.0.0.1:9050
+
+CONFIGURING JABBER PSI WITH TORUS
+
+Go to settings-accounts, add account
+
+Name Any name, you can put in a login, click
+Add XMMP address - this is the login (along with the domain)
+Password
+
+Go to the Connection tab Proxy server - the button Change
+
+Click Create
+
+Type: Socks version 5
+
+Specify server 127.0.0.1 Port 9050
+
+Click Save
+
+Select Refine connection - Always
+
+Authenticate in clear text - If the connection is encrypted
+
+Other settings are optional.
+
+That's it, save, check.  
+
+AFTER THE FIRST LOGIN
+
+In the certificate warning, click Trust.
+
+Then it will say that the profile is incomplete,
+
+so enter only one field, NIC.
+
+what you have before @ in your login (for example, if your login is asd@dfg.ru, your NIC will be asd),
+do not make up your own nicknames, otherwise you will get confused.

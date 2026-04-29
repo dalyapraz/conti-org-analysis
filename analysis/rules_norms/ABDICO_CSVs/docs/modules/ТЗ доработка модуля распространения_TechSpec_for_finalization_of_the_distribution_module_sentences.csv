@@ -1,0 +1,72 @@
+Sentence
+DISTRIBUTION MODULE
+TECHNICAL SPECIFICATION
+PURPOSE
+Refine the existing network distribution module:
+* Add a universal interface for adding new exploits
+* Determine the type of exploit to be used and design it to work through the interface
+*
+Add the BlueKeep exploit to the module.
+MODULE DESCRIPTION
+The module scans the local network and applies some kind of exploit on the found machines - the type is not known yet.
+What is known is that the shell code downloads the load from http://galamatics.com/jomangi1.png and http://galamatics.com/jomangi2.png (most likely via DownloadFromUrlA) and runs it.
+(most likely via DownloadFromUrlA) and runs it.
+The organization of the shell code is unknown:
+"If it is exploit-specific, there may be a ROP."
+"If not, it may be searching for the necessary functions in the import table and working through them."
+Scanning is performed on three types of network environment:
+- Windows workgroup
+- Windows domain
+- LDAP
+The module is designed according to the document module_HOWTO.
+ADJUSTMENT
+All refinements should be done within the module_HOWTO document.
+The network scanning code does not require rework.
+The following requires revision:
+1) Exploit interface:
+- The exploit must have a main method Exploit(const char* hostname) (this can be the address of the machine or its name)
+- the network scanning code must be isolated from the exploitation code
+"- the module must be built as a constructor, from the right combination of network scanner and exploit variant, by conditional compilation."
+The goal is to reuse the scanning code to create different modules based on it.
+"The combination of ""each with each"" is not needed (each exploit with each scan variant) - there is no goal to achieve full variability."
+You should implement such a constructor in the following way:
+"- Using macros in the config.h file, we select which module we are building."
+"Using the same macros, we disable code that is not used in this build."
+"For example, if we use the FOO exploit, we do"
+config.h:
+#define FOO
+#undef BAR
+foo.cpp:
+"#include ""config.h"""
+#ifdef FOO
+...
+code here
+...
+#endif
+- The name of the output file should be different for different variations
+- It is best to use compilation profiles in Visual Studio for different variants
+"In this case, you can set preprocessor macros directly in the build settings for a specific project profile."
+Create a different build profile for each variant.
+2) The BlueKeep exploit should be added to the module according to the exploit interface.
+Information on BlueKeep:
+https://github.com/umarfarook882/CVE-2019-0708
+https://github.com/n1xbyte/CVE-2019-0708
+https://github.com/adalenv/CVE-2019-0708-Tool
+https://github.com/gobysec/CVE-2019-0708
+https://github.com/Ekultek/BlueKeep
+https://github.com/robertdavidgraham/rdpscan
+https://github.com/zerosum0x0/CVE-2019-0708
+https://github.com/dothanthitiendiettiende/BlueKeep
+https://github.com/Ekultek/BlueKeep/blob/master/bluekeep_poc.py
+3) Module finalization
+"- obfuscate strings with Andrivet Advanced Obfuscator library, apply encryption from MetaString4.h"
+- obfuscate system calls via GetApi
+- add the following events:
++ Module wormDll build %date% %time% started - when the module is started
++ Trying %sploit% on %hostname% (%addr%) - when an exploit is applied to the host
+- make logging to a file in the current directory.
+"The name of the log is the same as the running module, but with the extension .log"
+Use the attached logging library.
+"- Logging should only occur in Debug, Release_logged build profiles."
+Logging should be disabled in Release_nologs profile.
+"(by disabling macros LOG_TO_FILE, LOG_TO_CONSOLE)"

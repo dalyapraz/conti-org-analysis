@@ -1,0 +1,3 @@
+class,precision,recall,f1
+empty,0.938,0.625,0.75
+rule or norm,0.357,0.833,0.5

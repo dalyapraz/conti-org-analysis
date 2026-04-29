@@ -1,0 +1,83 @@
+Sentence
+ADAPTATION OF THE masscan PROGRAM TO THE SCANNER ADMINK
+Technical Specifications
+PROJECT OBJECTIVE
+"To adapt the masscan software to be used with the scanners' admin, for distributed work."
+DESCRIPTION
+The source code for the project is here: https://github.com/robertdavidgraham/masscan
+"This is a fast port scanner, handling millions of packets per second and millions of addresses."
+We need to saw it so that it:
+1) work on Windows (it seems to be able to do that)
+2) work without administrator privileges (there are doubts here)
+"3) be designed as a module (see module_HOWTO.txt, code and builds design.txt)."
+Configs are passed to the module through the Control() call.
+"The name of the config is the string in the Ctl argument, the body of the config is the CtlArg argument,"
+"config length is CtlArgLen (see ""module_HOWTO"")"
+"The module receives a single config named masrv containing a list of control server addresses,"
+"separated by \r\n or \n, in the format address:port."
+"If the port is even, the work is HTTP, if odd - HTTPS."
+"If a protocol prefix is specified (http/https), the prefix takes precedence over the specified port."
+"The module works with the control server that was reached first, for each request."
+EVENTS
+"The module should send the following events via callback (see ""module_HOWTO""):"
+- MASS scanner build %date% %time% started
+"- %d addresses tried, %d open ports detected - periodically every half an hour (timeout is set by constant in config.h)."
+SCANNER
+Scanner receives ranges for scanning for checking by HTTP request to the server
+GET /<group>/<clientid>/mass/domains HTTP/1.1
+The group and clientid values are struct ParentInfo fields
+CHAR ParentID[256];
+CHAR ParentGroup[64];
+(see module_HOWTO)
+address range1[{r]\n
+port range1[\r]\n
+...
+(multiple entries)
+"Here, the odd line contains the address range to be scanned (in masscan format)"
+The even line contains the port range to be scanned (in masscan format).
+Sending the results is done via DPOST protocol with a request
+POST /<group>/<clientid>/mass/81
+HTTP/1.1
+The collected data is sent in multipart/form-data container with source and data fields.
+"The value of the source field is ""PORT scan"""
+"Data field value: plain text, line separator \r\n"
+Record format:
+address:port:protocol\r\n
+...
+(one or many entries)
+For example:
+195.1.15.68:53:udp\r\n
+195.1.15.68:53:tcp\r\n
+The frequency of sending the dummy data can be obtained from the control server by HTTP request
+GET /<group>/<clientid>/mass/freq HTTP/1.1
+"In the body of the response we expect a number - this is the number of seconds, not more often than which the data should be sent."
+If it is 0 - we send it as soon as a new result is ready.
+"If it is a positive number - we accumulate records in the buffer and send once in X seconds,"
+clearing the buffer on successful sending.
+GET /<group>/<clientid>/mass/over HTTP/1.1
+The server response is the same as to the /domains request - a new list of domains to work with.
+"In case of an unexpected response (empty list, error code, etc.)"
+the module goes to idle (scanning is stopped).
+and makes the same request once every 10 minutes (time is a constant).
+The scanner receives all necessary settings by requests:
+GET /<group>/<clientid>/mass/name-settings HTTP/1.1
+The main settings of the original program should be brought to the admin area.
+TODO
+These settings will be added locally - it is hard to say now which of them will be needed.
+ADMINKA
+The admin needs to be finalized is to define a rule for splitting a common range into chunks.
+"The user enters ranges in one way or another (either in plain text input fields, or uploads lists as text files)."
+"The task of the admin is to split these ranges into a larger number of smaller ranges, so that scanning one sub-band takes no more than an hour on the weakest machine,"
+and so that there are more bands than bots online (there is always a reserve of sub-bands for issuing).
+"The general principle is that the smaller the size of the sub-band, the better."
+User input of ranges for scanning consists of two fields:
+- address range
+- port range
+The syntax of the ranges is common for network scanners:
+"1. you can specify individual addresses via , 10.0.0.0.1,10.0.0.2"
+2. you can specify a subnet via the number of significant bits 10.0.0.0.0/8
+3. you can specify the start and end via dashes 10.0.0.0.1-10.0.0.0.120
+"4. same for ports, except for point 2"
+5. you can specify multiple ranges.
+Then they are combined by OR
+The admin user interface should allow ranges to be entered with the above in mind.

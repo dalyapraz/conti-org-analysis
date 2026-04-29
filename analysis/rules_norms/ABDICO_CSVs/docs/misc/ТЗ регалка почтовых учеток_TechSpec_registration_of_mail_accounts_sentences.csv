@@ -1,0 +1,31 @@
+Sentence
+"Need to write a mail account registrar script, with the following requirements:"
+- site: gmx.com
+- work through randomly selected socks5 proxy (the list of proxies is set as a text file).
+Proxies are set as
+11.22.33.44:port
+"- mandatory fields (first name, last name, state, etc.) are filled in randomly."
+Values must be plausible.
+"You can use name dictionaries, etc."
+"The script should have a command line interface, through which you can specify:"
+- file name with the list of proxies
+- output file name with the list of created accounts email:password
+"- files of additional dictionaries for names, etc."
+- number of accounts to register
+"The script should comment its actions on stdout/stderr, in the following form:"
+2019-12-04 12:00:00:00 Started work
+2019-12-04 12:00:00:00 10 enrollment entries
+2019-12-04 12:00:00:00 Dictionary of names: dict1.txt
+2019-12-04 12:00:00:00 List of proxies: proxies.txt
+2019-12-04 12:00:00:00 Register record #1
+"2019-12-04 12:00:00:00 Selected identity data: John Doe, Tallahussy, Texas, jdoe@gmx.com, password 12345"
+2019-12-04 12:00:00:00 Connecting with https://gmx.com:80...ОК
+2019-12-04 12:00:00:00 HTTP POST /reg.php
+2019-12-04 12:00:00:00 Reply 401 Forbidden - error!
+2019-12-04 12:00:00:00 HTTP POST /reg.php
+2019-12-04 12:00:00 Reply 200 OK - successful
+2019-12-04 12:00:00:00 Account #1 created: jdoe@gmx.com
+2019-12-04 12:00:00:00 Register account #2
+...
+2019-12-04 12:00:00:00 Accounts saved in accs.txt
+2019-12-04 12:00:00:00 PM Bye!

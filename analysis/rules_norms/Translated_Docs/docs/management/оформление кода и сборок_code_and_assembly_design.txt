@@ -1,0 +1,242 @@
+CODE REQUIREMENTS
+
+1. You should minimize the use of Visual C++ Runtime. Functions malloc, memcpy, str* should be avoided.
+WinAPI already has everything you need - instead of malloc - HeapAlloc, instead of memcpy - CopyMemory, instead of strstr - StrStr (shlwapi.h/.lib).
+CRT adds quite a lot of unnecessary code to the binary.
+1.1 The STL should generally be avoided.
+1.2. Some STL chips give extra prologue to the code. For std::mutex it weighs 200k. It is not visible in your code, but it is there, and will behave strangely in the context of execution!
+2. linking of rantime and third-party libraries to the module should be static (flag /MT).
+3. Obfuscate strings with Andrivet library (attached, see _STR() macro).
+4. Obfuscate system calls with GetApi.h library. Be careful, obfuscation of system calls may cause crashes.
+
+
+MODULE DESIGN
+
+1. Must have a Microsoft Visual Studio project of version 2015 or higher.
+2. The Visual Studio project must be configured as follows:
+* For ALL build profiles:
+- General / Output directory: $(SolutionDir)Bin\$(PlatformTarget)\$(Configuration)\.
+- General / Intermediate directory: $(SolutionDir)\obj\$(Platform)\$(Configuration)\$(ProjectName)\.
+- General / Windows SDK version: <inherit from parent or project defaults>
+- C/C++ / General / Multiprocessor compilation: yes
+- C/C++ / Code Creation / Runtime Library: Multithreaded or Multithreaded Debugging (Release/Debug respectively)
+- C/C++ / Code Creation / Create Image with Update: No
+- C/C++ / Code Creation / Enable C/C++ Exceptions: None
+* Release profile:
+- Debug Information Format (C/C++ General ): No
+- Create debugging information (linker / debugging): no
+Add to additional parameters
+/DEBUG:NONE /EMITPOGOPHASEINFO
+https://stackoverflow.com/questions/45538668/remove-image-debug-directory-from-rdata-section
+- C/C++ / Code Creation / Enable security check: none
+- C/C++ / Code creation / Basic runtime checks: default
+- C/C++ / Optimization / Omit frame pointers: yes
+* When building LLVM-Obfuscator:
+Clang adds a string with the path to the .pdb symbol file, even if this is disabled by the build options.
+Suppress it like this (Visual Studio):
+- Composer -> Command Line, specify /pdbaltpath:<string>, instead of the path to the pdb will be this string.
+5. The module must have two versions - x32- and x64-bit.
+6. The module must be compiled statically and be a single .exe/.dll file.
+For .dll modules, it is acceptable to include a _test_ launcher as a .exe.
+7. The combat build should have lines obfuscated to the maximum, and all debugging output disabled.
+8. The module must have a debug version. Debug output should be output in modulename.log (the path to the log is configurable in the macro).
+Each log entry must contain a timestamp accurate to the second.
+9. There should be a config.h file in the project (the name is not important, the essence is important - all global settings - paths, macros-switches for conditional compilation, etc.).
+10. The module should work on all modern versions of Windows.
+   The minimum supported version of Windows is Windows XP (if it is impossible - Windows Vista).
+11. Additionally, the file notelemetry.obj (https://stackoverflow.com/questions/37761768/how-to-prevent-visual-studio-2015-update-2-to-add-telemetry-main-invoke-trigger) must be added to the layout.
+12. entry point for Cobalt Strike:
+#define DLL_API __declspec(dllexport)
+extern "C" DLL_API void CALLBACK StartDLL(HWND hwnd, HINSTANCE hinst, LPSTR lpszCmdLine, int nCmdShow)
+Called like this:
+
+TStr DllCmdLine;
+for(int i = 1; i < argc; i++)
+    DllCmdLine += TStr(argv[i]) + (i < argc - 1 ? " " : "");
+char *OutputData;
+int OutputSize;
+int *p = &OutputSize;
+pStartDLL(HWND(&OutputData), HINSTANCE(&OutputSize), &DllCmdLine[0], SW_MAX + 1);
+The entry point is blocking: the calling context can be blocked for any time needed to complete the function.
+
+ASSEMBLY DESIGN
+
+An assembly must have a directory structure:
+
+ modulename/Release_logged/x86
+ modulename/Release_logged/x64
+ modulename/Release_nologs/x86
+ modulename/Release_nologs/x64
+
+Release_logged contains the version with logging and without obfuscation (but it is still a Release build profile!
+i.e. it should have all optimizations enabled, debugging symbols disabled, etc.).
+In release_nologs - version without log, with full obfuscation.
+In the name of the directory with the assembly must be the name of the module and the date (for example cookies.22.04.2019).
+If there are several builds of the same module on the specified date, a unique suffix should be added (e.g. cookies.22.04.2019.2).
+
+This is necessary for normal operation of the module - so that testers and administrators can distinguish versions of builds,
+to make it possible to rollback or upgrade, as well as to provide the required build by its date.
+A sample script for automated publication of builds is attached at the end of the document.
+
+Two files in Russian must be attached to the build:
+
+* README.txt - a brief description of the purpose and use of the program.
+It should contain non-obvious nuances, quick start, all the subtleties that the developer knows about
+and not known to outsiders.
+The main requirement for the document: accuracy. If something is stated in the document, it must work without question within the specified limits.
+
+Approximate structure of the document:
+- Purpose of the program
+- Brief description
+- Syntax
+- Format of configs and settings (if any)
+- Limitations, known bugs and problems, supported OS and third-party software, system requirements
+
+* RELEASE_NOTES.txt in the following format:
+
+11.02.2010
+Version 1.1
+- new features such and such
+- such bugs are fixed
+- such bugs are known and have not been fixed, but are planned to be fixed
+- such nuances of using the version
+
+01.02.2010
+Fixed program crash due to this and that
+
+01.01.2010
+First version of the program
+
+
+ASSEMBLY VALIDATION
+
+Before issuing an assembly, the developer is obliged to:
+- independently perform a smoke test
+- check for unobfuscated strings in Release_nologs binary files.
+This can be done either by simply viewing the file body in Far,
+or with IDA Pro (after the file parsing is finished, open Open Subview -> Strings),
+or using third-party utilities.
+- In particular, you should make sure that there are no nicknames and paths in the binaries
+(like d:\work\Vasya Ivanov\project\project.pdb).
+- check if there is no reference to debugging information in Release_nologs
+(IDA Pro displays a window with a suggestion to connect debugging symbols at the beginning of file parsing)
+- check the file on dyncheck.com for static analysis. Do NOT run dynamic analysis!
+Allowable detector counts:
+* x86 - up to 6 detects
+* x64 - up to 3 detects
+!!!DO NOT check detections on virustotal.com!!!!
+
+
+DISTRIBUTION
+
+Builds are issued as an encrypted .rar archive with a password length of at least 16 characters.
+The password must be strong (different character cases, alpha and numerals, punctuation marks, etc.).
+FILE NAMES IN THE ARCHIVE MUST BE ENCRYPTED.
+The archive name should be non-speaking.
+modulename.22.09.2010.rar - bad name
+c.rar - good name
+
+
+GIT POLICY
+
+IN GIT COMMIT WHENEVER THERE IS SOMETHING TO COMMIT.
+
+IT'S A GUARANTEE THAT NO WORK WILL BE LOST.
+
+IT'S A GUARANTEE THAT WORK WON'T BE LOST.
+
+IT'S A GUARANTEE THAT JOBS WON'T BE LOST.
+
+If you write code every day, you commit every day.
+You should commit EVERY code that is not working - just do it in a separate branch and merge it into the main branch after stabilization.
+
+IT IS FORBIDDEN TO COMMIT:
+- archives
+- files with logins, passwords, URLs and IP addresses, names, addresses, phone numbers of anyone you know, as well as their hashes.
+(this does not apply if the file is taken from public, some demo, URL leads to public, etc.)
+- binary garbage (.obj, .suo, .sdf and other intermediate files of Visual Studio and other IDEs)
+- build results - project output files (.exe, etc.)
+
+Why do you need version control systems (and git in particular)?
+- as a means of backup (protects against losing a day's work)
+- as a means of centralized code storage and mobility (access from anywhere and from any machine)
+- memory and history (answer to the question: WHY THIS DAMN STORY WAS WRITTEN)
+
+Believe me - in six months at most you won't remember why that fucking line was written.
+If you got the project after someone else - it's mission impossible.
+Almost all modern version control tools have a blame function to solve this problem.
+For example
+
+git blame src/file.cpp
+
+will show the author, date and commit number of each line of the specified file. And all this is integrated into Visual Studio
+(right-click on the file in Solution Explorer -> Blame (notes)).
+In order to see something clear there, instead of "some update", you should
+- write clear comments for commits;
+- commit a couple of lines at a time, instead of committing a huge bundle of files at the end of the week with a "." comment;
+- commit only those files that were affected by the fix (instead of hacking the whole directory with the comment "commit", what's the big deal,
+whatever, it doesn't matter that old forgotten crap that's been in the project for god knows how long has been there)
+- use the diff tool (or rather its visual analog, such as the merge tool built into Visual Studio) when creating a commit
+
+It follows that you should commit often:
+- fixed a bug - immediately commit only the files related to it with the comment "fixed the stack overflow bug in function so-and-so for this reason and that reason".
+- wrote a feature - immediately commit only the files concerning it with the comment "implementation of non-interactive HTTP-client".
+
+And then, looking up the history of changes in the file, you will see the reason why this line was written, as well as the RELATIONSHIP of this line with other parts of the code.
+
+Of course, you may not do all this because you are too lazy to study, and all that.
+But who are you then?
+
+
+APPENDIX 1. AUTOMATIC PUBLISHING SCRIPT
+
+Following is an example .bat command script for publishing an assembly.
+
+
+@echo off
+rem usage: publish_build.bat
+
+SetLocal EnableDelayedExpansion
+set outdir=f:temp
+set srcdir=f:\Projects\project\Bin
+
+for /f %%%x in ('wmic path win32_localtime get /format:list ^| findstr "="') do set %%x
+set today=%Day%.%Month%.%Year%
+set outdir=%outdir%\g%today%
+echo %outdir%
+if not exist %outdir% goto :startcopy
+set /a x=2
+:while
+if %x% lss 100 (
+  echo %x%
+  set /a x+=1
+  if %outdir%.%x% does not exist (
+     set outdir=%outdir%.%x%
+     goto :startcopy
+  )
+  goto :while
+)
+)
+
+:startcopy
+mkdir %outdir%
+mkdir %outdir%\logged
+mkdir %outdir%\logged\Release.x86
+mkdir %outdir%\logged\Release.x64
+xcopy /Y %srcdir%\x86\Release_logged\module.dll %outdir%\logged\Release.x86
+xcopy /Y %srcdir%\x86\Release_logged\loader-test.exe %outdir%\logged\Release.x86
+xcopy /Y %srcdir%\x64\Release_logged\module.dll %outdir%\logged\Release.x64
+xcopy /Y %srcdir%\x64\Release_logged\loader-test.exe %outdir%\logged\Release.x64
+
+mkdir %outdir%\not_logged.
+mkdir %outdir%\not_logged\Release.x86
+mkdir %outdir%\not_logged\Release.x64
+xcopy /Y %srcdir%\x86\Release_nologs\module.dll %outdir%\not_logged\Release.x86
+xcopy /Y %srcdir%\x86\Release_nologs\loader-test.exe %outdir%\not_logged\Release.x86
+xcopy /Y %srcdir%\x64\Release_nologs\module.dll %outdir%\not_logged\Release.x64
+xcopy /Y %srcdir%\x64\Release_nologs\loader-test.exe %outdir%\not_logged\Release.x64
+
+xcopy /Y %srcdir%\..\RELEASE_NOTES.txt %outdir%
+xcopy /Y %srcdir%\..\readme.user.txt %outdir%
+
+EndLocal

@@ -1,0 +1,81 @@
+Sentence
+0. Use strong passwords.
+"At least 16 characters long, different character registers, alpha and numeric characters, punctuation marks, and the full ASCII alphabet."
+1.
+Transfer files to each other as an encrypted .rar archive with a password length of at least 16 characters.
+The password should be strong (see above).
+THE ARCHIVE TABLE OF CONTENTS (FILE NAMES IN THE ARCHIVE) MUST BE ENCRYPTED.
+This is a mandatory requirement.
+File names tell a VERY MUCH about you.
+The archive name should say nothing.
+modulename.22.09.2010.rar - bad name
+c.rar or 1.rar - good name
+2. avoid transferring files via privnote.com and similar services.
+Remember that the transferred text will remain in the server logs forever.
+"2.1 DO NOT OPEN other people's .doc, .docx, .xls, .pdf, .rtf"
+"and so on - any files on your personal machine,"
+interpreted by a tuning-complete finite state machine (which almost all programs are).
+These formats are used to plant viruses.
+If you have to - virtual machine and virustotal to help.
+"Use only .txt format, and as an exception - images."
+3. use TOR and/or VPN for any activity.
+"TOR is preferable, but not all sites are accessible through it."
+Only use a VPN issued at work.
+Check yourself on sites like whoer.net - how do you look to analysts?
+4.
+The preferred browser is TOR Browser.
+In second place is Mozilla Firefox with tracking protection enabled and telemetry disabled.
+Do not use Chrome except for testing purposes.
+Chrome was originally designed for spying activities in favor of Google.
+Look for how WebRTC is turned off in the browser.
+Your real IP is leaking through it!!!
+Turn off telemetry and Google safe browsing in your browser.
+Browser is dangerous for file transfer because it uses two channels to match the source and destination of the file:
+- safe browsing (the hash and link of the file is sent both when the file is uploaded to the network and downloaded - at both recipients)
+- via local AB:
+FF/Chrome/Edge put in alternative streams of the file information about where the file was downloaded from:
+[ZoneTransfer]
+ZoneId=3
+ReferrerUrl=http://www.nattyware.com/pixie.php
+HostUrl=http://www.nattyware.com/bin/pixie.exe
+Incognito mode:
+[ZoneTransfer]
+ZoneId=3
+HostUrl=about:internet
+5. Remember that trackers in browsers (like Google Analytics) give a complete picture of your movements on the network.
+"Therefore, only TOR Browser."
+"Mozilla Firefox has anti-tracking protection, but it is imperfect."
+Remember about browser fingerprinting:
+https://habr.com/ru/company/selectel/blog/521550/
+https://habr.com/ru/company/selectel/blog/523462/
+https://habr.com/ru/company/brave/blog/551588/
+6. Make backups as often as possible.
+Copy them to a separate medium and store it separately.
+It is advisable to store the backup media in another room.
+The backup media should be encrypted.
+"7. Encrypt the working partition, store working files in crypto containers."
+8.
+Run the resulting files only in a virtual machine with a configured rollback point.
+Even from a virtual machine it is possible to leak your real IP address.
+"9. Check unknown files on services like VirusTotal, including documents."
+Do not run anything obtained from the network on your personal computer.
+10. Use different identities for different activities.
+A unique nickname on the Internet is a very bad thing.
+There are now automated commercial scanners that run a person through a nickname or photo.
+"Use different nicknames on social networks, at work, in other activities."
+"In social networks it is better not to shine at all and do not put real data - photos, addresses, phone numbers, etc."
+"If you really need to, only under a pseudonym and with a left photo."
+Learn to make up names and biographies for yourself.
+11.
+Do not use smartphones for anything work-related.
+"If you lose your smartphone or it gets stolen, what then?"
+12.
+Don't talk.
+APPLICATIONS
+LineageOS
+Secure Android: https://habr.com/ru/post/465945/
+Secure Windows 10 (Windows Ameliorated): https://ameliorated.info
+Disabling Windows 7/8.1 Telemetry: https://github.com/keizerzilla/remove-windows7-telemetry
+Anonymity in the metropolis https://habr.com/ru/post/553558/
+A practical guide to anonymity: https://habr.com/ru/company/vdsina/blog/556914/ and https://anonymousplanet.org/guide.html
+Smartphone Structure: https://habr.com/ru/company/timeweb/blog/590497/

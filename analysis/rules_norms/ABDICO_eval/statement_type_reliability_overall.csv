@@ -1,0 +1,2 @@
+rows,overall_accuracy,cohen_kappa,krippendorff_alpha_nominal,chance_agreement_Pe,observed_disagreement_Do,expected_disagreement_De
+30,0.8333,0.6988,0.7017,0.4467,0.1667,0.5588

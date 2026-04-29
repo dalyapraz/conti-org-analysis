@@ -1,0 +1,308 @@
+Sentence
+PREDICTION
+The purpose of the document is to give a quick dive into computer and network hacking;
+"Audience - IT professionals with no such experience, with systems programming and administration experience."
+NETWORK LANDSCAPES
+Any (almost) modern network can be hacked.
+This is due to:
+"- redundancy of networks: multiple services, different entry points to the same network;"
+"- the prioritization of convenience over security: a prison is safe, but it is very difficult to do anything in it;"
+"- the human factor: configuration errors, social engineering."
+"The second point is reinforced by the tangible profit response to the slightest slowdown in turnover in the commercial sector,"
+"so without a military transition, the networks of capitalism will always be leaky)."
+https://habr.com/ru/company/selectel/blog/576482/
+"If there are no *known* vulnerabilities in the entry points found, it just means that you have to"
+- you need to look for other entry points;
+- you have to look for vulnerabilities yourself (if you really need to get into the network);
+- you have to look for a person;
+- look for another target with the same information.
+Networks are well protected by those organizations that are subject to government protection requirements.
+"These are not necessarily military networks or security institutions: if you store the names and personal data of your clients,"
+you're obliged to take steps to protect them.
+"Protecting trade secrets, on the other hand, is ""your"" problem."
+The value of a target is often inversely proportional to its protection.
+"A military network may have lists of 196x underpants (useful for military analysts),"
+"and a poorly protected commercial network, or a personal laptop, may contain critical pharma/IT/engineering research."
+But this is not always the case.
+There are super fortresses inside poorly secured networks that either a diverse team or an extra-class hacker can take.
+Such scenarios are common in Standoffs (Hack The Box etc) for white hats.
+"If you're not an extra-class hacker, use ingenuity (drop the server and catch the network/keyword, outsource the task, etc)"
+"TECHNIQUE, TACTICS AND STRATEGY"
+- strategy: why do we need to hack?
+"what to look for, what targets to choose? *"
+- Tactics: the order of actions outside and inside the network that lead us to our goal;
+"- technique: -scandals-intrigue-investigations-tools, vulnerabilities, research."
+(*very incomplete illustration https://habr.com/ru/company/cloud4y/blog/551376/ small-commerce orientation)
+"All three levels in capable hands - from target selection, exploration, implementation and testing of exploits, to hitting the target and the prize:"
+https://gist.github.com/jaredsburrows/9e121d2e5f1147ab12a696cf548b90b0
+RECONNAISSANCE AND TARGET SELECTION
+"If there is no specific network to target, and you have an exploit, you use network scanning"
+(the entire Internet or interesting ranges) in search of vulnerable services.
+"If you don't have time, the well-known shodan.io service can help, but it's better to have your own scanner."
+"In case of a point attack (a specific object), reconnaissance is required."
+You can start by analyzing the company's domain zone and its public services.
+"Large corporations with huge networks usually have their own autonomous systems (AS, Autonomous System) with a known range of networks."
+"It is possible to map at least part of the external services using WHOIS (https://hackertarget.com/whois-lookup/) and DNS (https://habr.com/ru/post/554458/),"
+as well as the desire of network administrators to maintain hierarchy in the description of domain zones.
+There are scouting search engines like https://www.zoominfo.com with general and detailed information about companies.
+"Next, the weak link is searched for (see below)."
+Social engineering requires knowledge of personalities.
+"Everything is important: phone numbers, place of residence, dog's name, hometown, favorite color, favorite band, hobbies."
+"Of particular importance: your candidate's personal network of contacts, especially business contacts."
+The structure of organizations reflects the structure of society.
+"By moving from one person to another through a network of contacts, you can change entry points within the same network, or open new networks."
+"Both OSINT reconnaissance tools are used to gather information,"
+"as well as information about contacts found in previously opened networks (Outlook address books, correspondence, etc.)."
+Reconnaissance for social engineering is called doxxing: https://securelist.ru/corporate-doxing/101055/.
+This data is then used either through phishing emails or calls.
+"In both cases, the load is triggered by a human."
+OSINT toolkit
+* Broad spectrum search engines
+"https://github.com/laramies/theHarvester - collect email addresses, subdomains, virtual hosts, open ports/banners, employee names from public sources."
+https://github.com/Bafomet666/OSINT-SAN OSINT-SAN - general-purpose harvester
+https://mor-pah.net/software/dmitry-deepmagic-information-gathering-tool/ - Dmitry - analog of the previous tool
+"https://github.com/0xInfection/TIDoS-Framework - universal framework with the ability to analyze networks (DNS, whois, emails)"
+https://github.com/smicallef/spiderfoot
+"https://osintframework.com/ - OSINT tools rubricator, general search on social networks, large set of different search tools:"
+https://hunter.io/ - collecting email info by domain name
+https://hackertarget.com/
+* Company search engines
+https://www.zoominfo.com - company data search engine
+https://opencorpdata.com/ - Open corporate business database
+https://domainbigdata.com/ - big database of domains and whois records
+https://opencorporates.com/ - largest open database of companies in the world
+https://www.sec.gov/edgar/searchedgar/cik.htm - EDGAR Company Filings | Central Index Key Lookup
+http://www.orsr.sk/search_osoba.asp?lan=en - Business register | Ministry of Justice of the Slovak Republic
+More tools in the article https://habr.com/ru/company/pentestit/blog/554006/
+* Search by USERNAME/NICKNAME:
+https://namechk.com/
+https://github.com/snooppr/snoop
+* Search by EMAIL:
+https://haveibeenpwned.com/
+https://hacked-emails.com/
+https://ghostproject.fr/
+https://weleakinfo.com/
+https://pipl.com/
+https://leakedsource.ru/
+http://mailtester.com/ - E-mail address verification
+Skype application
+* Search by phone number:
+https://phonenumber.to
+https://pipl.com/
+GetContact app
+NumBuster app
+Truecaller app or https://www.truecaller.com/.
+http://doska-org.ru/
+Skype app
+*
+Network mapping
+https://www.shodan.io/
+https://spyse.com/
+https://crt.sh/ - search for subdomains
+https://archive.org/web/ - search the past (browsing sites on a specific date)
+https://viewdns.info/ - data about a given website or IP address
+https://github.com/Fadavvi/Sub-Drill Simple script for finding subdomains based on [free] online services without any dependency to API-keys
+https://builtwith.com/ - what the site is based on
+* Search for the location of a cellular operator's base station:
+http://unwiredlabs.com
+http://xinit.ru/bs/
+"* Search social networks, unsorted"
+http://sanstv.ru/photomap - Retrieve social media photos from local neighborhood (geo-tagged):
+https://foller.me/ - Twitter Analytics
+https://followerwonk.com/ - social analytics mega
+-tool that digs through Twitter data
+https://tinfoleak.com/ - Search for Twitter users leaks
+https://twicsy.com/ - Twicsy is social pics
+https://www.spokeo.com/- iskat infu po USA.
+https://github.com/jivoi/awesome-osint
+* Literature
+https://anonfiles.com/X0md34ycu1/Operator_Handbook_Red_Team_OSINT_Blue_Team_Reference_pdf
+Bellingcat's Online Investigation Toolkit - https://docs.google.com/document/d/1BfLPJpRtyq4RFtHJoNpvWQjmGnyVkfE2HYoICKOGguA/edit
+* MITM/phishing scanners (requires interaction with target):
+https://beefproject.com/
+"https://github.com/beefproject/beef BeeF to gather information about browsers and their exploitation,"
+"to get information about social network sessions, presence of TOR, visits to interesting sites, etc."
+https://github.com/kgretzky/evilginx2 - to intercept sessions and bypass 2FA on sites
+Further we consider Windows networks.
+The advantage of their operation is less effort compared to the operation of Linux networks.
+"It is easier to open the Windows segment of the network, and get passwords/admin keys for the Linux segment."
+The reverse migration (Linux->Windows) is much more difficult simply due to the lack of necessary tools in Linux.
+SELECTING THE POINT AND METHOD OF LOGON
+Any publicly available network service (public IP address:port) is a potential entry point.
+If it can't be penetrated - then it doesn't have a *known* vulnerability.
+There are statistics that certain vectors are more frequent:
+"- narrow-profile hardware (printers, routers, smart firewalls (router-like hardware with a firewall function));"
+"- popular web applications (wordpress, other cms-systems, etc.);"
+- inputs from botnets.
+Firmware of narrow-profile hardware is not updated - this is a dangerous process in itself;
+manufacturers ignore support of hardware older than H years (and even fresh hardware too).
+"In addition, hardware, like web applications, is not taken seriously in the context of security."
+"In other cases, social engineering (letter or call) comes into play."
+NETWORK PROTECTION
+An effective way to detect intrusion is to detect traffic anomalies.
+"Register legitimate traffic, memorize the approximate picture (protocols, frequency of exchange, packet weight, network subscribers, etc.)."
+Find and study sources of strange traffic.
+https://habr.com/ru/company/dsol/blog/541832/
+https://habr.com/ru/company/otus/blog/541582/
+Suricata https://suricata-ids.org/
+Example of manual analysis: https://malware-traffic-analysis.net/
+PyWhat library for automatic traffic parsing
+https://habr.com/ru/company/dcmiran/news/t/563206/
+https://github.com/bee-san/pyWhat
+"Traffic is logged, via taps in the network, for the purposes of forensics, legal evidence, incident investigations."
+"According to various reports, SSL/TLS traffic cannot be decrypted/can be decrypted due to proxying using MITM certificate in the corp network."
+(Palo Alto firewalls definitely have an SSL decryption option).
+The first uses machine learning to find anomalies: https://github.com/WalterDiong/TLS-Malware-Detection-with-Machine-Learning
+"(load lengths, frequency distribution and protocols/ports used, exchange frequency, ... - randomize all of these)"
+"In the second case, SSL cert pinning can be used in the bot's network subsystem implementation to detect MITM."
+Technical tools for network IS monitoring: https://habr.com/ru/post/549050/
+Dubious but effective defense is whitelist operation.
+"Here's a list of allowed sites, and hell, you don't need to go to sites for work, sorry, no web."
+"No messengers either, here's your corporate email."
+Here's a whitelist of applications that can be run on your computer; everything else is blocked.
+INSTRUMENTS.
+The basic hacker toolkit is frameworks.
+"You can do without them, but they give you automation:"
+1. Metasploit Framework (MSF) (+armitage GUI) - largest collection of splits and modules
+2. Core Impact (+impacket python) - the most pentest-friendly chips (minus - Windows only)
+3.
+Powershell Empire - pure powershell framework with all the consequences
+4. Posh2c
+"5. Koadik - these two are exotics, i.e. they have less detectable traffic"
+6.
+Cobalt Strike - extensibility
+https://www.cobaltstrike.com/downloads/csmanual43.pdf
+7.
+"Burp Suite - web-oriented, very popular"
+"8. Pupy - RAT (Remote Administration Tool) in Python, difficult for AV due to the fact that it is not native code familiar to AV, and not ""native"" for Windows (and AMSI) scripting language."
+https://github.com/n1nj4sec/pupy
+https://ptestmethod.readthedocs.io/en/latest/pupy.html
+and it comes with an injector https://github.com/infodox/python-dll-injection.
+Most of the basic actions can be done from a regular cmd shell using standard OS tools.
+The framework is:
+- splits;
+- scanners for them;
+- search for misconfigurations;
+- phasers;
+- sniffers;
+- task scripts.
+Approximate composition of the framework https://www.offensive-security.com/metasploit-unleashed/modules-and-locations/
+Network scanners
+Enum4linux https://github.com/CiscoCXSecurity/enum4linux (Windows/Samba network resources)
+"Password Stylers, Password Dumpers, Password Brute Force"
+Mimikatz review https://habr.com/ru/company/varonis/blog/539340/
+Patator https://github.com/lanjelot/patator (password brute forcer)
+SQL injection and Web vulnerability scanners
+https://habr.com/ru/post/542190/
+SQLMap http://sqlmap.org/
+jSQL-Injection https://github.com/ron190/jsql-injection
+"https://github.com/commixproject/commix command injection scanner, article https://habr.com/ru/post/550252/"
+Wapiti https://wapiti.sourceforge.io/ (web scanner/fuzzer)
+OWASP ZAP https://www.zaproxy.org/
+(web scanner/fuzzer/MITM proxy)
+A common disadvantage of all publicly available tools is that they are not known to AB.
+"You have to make serious efforts to clean them, or get your own private set of clean tools."
+TACTICS OF ATTACK
+The primary target of most attacks is the Active Directory Domain Controller or Domain Controller of a Windows network.
+"Access to these nodes gives at least wide vectors for moving around the network, and at most full control over the network."
+"Active Directory is more convenient for operation, because there are typical misconfigurations, vulnerabilities of the service itself, shared resources,"
+that make both employees and hackers comfortable.
+Control over the Domain Controller of the Windows network gives at least:
+- Logs of intradomain authorizations of various users on workstations in the domain
+"- NTLM hashes of passwords of all domain users, which do not even need to be brute-force (cmd5.org service)."
+The hashes can be brute-force easily and quickly because they are unsalted.
+- The domain controller almost always has a DNS server with all records on it.
+"That is, access to the DC (both AD and Windows) gives a lot of information at once also due to the presence of all services on the DC - LDAP, Kerberos, DNS."
+"LDAP allows you to ""communicate"" within AD, get access to all services attached to Active Directory authorization."
+https://www.varonis.com/blog/the-difference-between-active-directory-and-ldap/
+"It is not worth fixing on DC, because these nodes are important and are closely monitored."
+"Server machines that keep some services knocking outside are preferable for anchoring,"
+"i.e., that are allowed outbound traffic."
+"An ideal backdoor is always a legitimate access - knocking services like VPN/thin client/RDWeb/RDP etc,"
+that you can disguise your traffic as.
+We are looking for any suitable creeds and computers on the network.
+"The next priority may be to route traffic through application/business software (Outlook, IIS/PHP webshell, etc.)."
+"Next - DNS/TCP/HTTPS protocols, using standard Windows tools to secure them."
+(the obvious disadvantage is that the use of standard OS tools for anchoring is tightly monitored).
+Networks of IT companies usually have their own virtual machine farms.
+"One of the means of avoiding detection can be the use of your own clean virtual machine (without AV, EDR) with access to the network."
+"A secondary target is any host in a DMZ (""Internet seeing"" network segment)."
+The next most convenient is any machine from which the DMZ is visible.
+"One password for everything, and the user's presence on multiple hosts is the most important help to a hacker."
+The development of the attack is iterative and involves the use at each successive stage of the attack of data mined in previous stages:
+"1. scanned, pimped, brute-force"
+2. tried the extracted creds on the next/previous node; expanded presence
+3. goto 1
+"With a shell from a domain machine, an approximate attack scenario:"
+1. our first goal in capturing the AD forest is to find the domain admin password hash;
+any AD hash means complete compromise of the domain and all its users.
+"NTLM hashes allow you to move around the network without knowing the password, so it's not necessary to brute force them."
+"2. interrogate the domain composition (using adfind.exe utility, net /view /all /domain, etc.);"
+"3. analyze the data: comments may contain passwords of users/service accounts/even domain administrators themselves, in addition to information about the network structure);"
+4. within the local machine we check whether we can increase the rights to the SYSTEM.
+Further branch - we could / could not.
+SYSTEM allows
+5. poison ARP cache and pretend to be another host to intercept its traffic and passwords (their hashes);
+"6. dump hashes (ntdsutil, mimikatz) on the local node."
+All used hashes are used to develop the attack (one password for everything!)
+If the SYSTEM could not be obtained:
+7. go through the current machine with a styler and look for accesses inside the network
+8. check all visible domain machines for RCE (remote code execution vulnerabilities)
+"9. check if the current user has administrative rights on any of the domain machines: see what groups he is in,"
+"empirically predict, then check via SMB whether he sees $ADMIN balloon somewhere;"
+if it does - jump there and get the SYSTEM there.
+10. conduct kerberoast attack to get kerberos-hashes for further brute force;
+11.
+"if the network is small - we can gently brute force the users, checking lockout threshold beforehand (to avoid blocking them with brute force);"
+12.
+if we see a writable inetpub directory - write aspx load there and execute it by accessing it through the web;
+13.
+scan all subnets for available network devices and check the available creds.
+AD Hacks: https://github.com/Integration-IT/Active-Directory-Exploitation-Cheat-Sheet
+MITRE for Windows
+https://attack.mitre.org/matrices/enterprise/windows/
+Working with AD passwords: https://habr.com/ru/post/543806/
+MITRE
+"This is a systematized database of hacking techniques, giving various cuts and aspects of tactics."
+"The official purpose is to strengthen defenses, to help IS departments and specialists."
+Absolutely all (no) hacks are categorized and get categorized here.
+"Incomplete and in Russian Adversarial Tactics, Techniques & Common Knowledge (ATT@CK):"
+https://habr.com/post/423405/
+https://habr.com/post/424027/
+https://habr.com/post/425177/
+https://habr.com/post/428602/
+https://habr.com/post/432624/
+"If you are stumped, look here for non-standard (unknown to you personally) techniques and hacks."
+INFORMATION IS THE GOAL
+What it's all about.
+"1. Mail, correspondence, contacts, address books, lists of contractors"
+2. databases
+3. program source code
+4.
+Documents
+5. Accounting
+6.
+Design documentation
+7.
+Passwords to other networks
+8.
+Electronic wallets
+TODO
+what files to look for (extensions)
+TODO how is it pumped out?
+"ANALYTICS, ATTRIBUTION, HANDWRITING"
+"Analyzing public sources about your activities is important: you recognize the part of the tricks that have already been disclosed, and therefore they have become ineffective."
+"However, you don't know the part of the tricks that have not been disclosed."
+"For the sake of this, the adversary may launch disinformation, concealment, and deception."
+"Sooner or later, any hacker reads the dismantling of his art in IS articles."
+And is surprised to find that important information is omitted and insignificant information is emphasized.
+This is done for several reasons:
+- True incident reports are classified information.
+- no one will give valid prescriptions to the public.
+"- most of the articles are advertisements ""buy our IS solution"", interfering facts are ignored, insignificant ones are hypertrophied."
+- Analysts can really miss important details.
+"- they know everything, but they don't show it - to use it against you."
+- along with the true facts can be fed to you.
+"Be careful, each APT group has its own handwriting known to security analysts - favorite tactics for entry, entrenchment, and movement,"
+YARA tool profiles.
+IB's view: https://habr.com/ru/company/group-ib/blog/545104/

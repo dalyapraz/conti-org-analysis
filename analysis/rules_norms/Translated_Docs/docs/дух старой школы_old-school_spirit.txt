@@ -1,0 +1,59 @@
+YOUR ATMOSPHERE
+
+Our work is highly complex. Rarely will anyone give you a ready-made recipe, at best they will tell you where to look.
+That is why you need to rely only on your mental acuity, your wit and ingenuity, your ability to make unconventional moves.
+That is, your evolutionary advantages.
+
+Magic practices from the IT world don't work - scrums, standups, rallies, ticketing, code reviews
+and other kargo cults with silver bullets.
+It's not enough to just "do the right thing" and expect results.
+Think critically and only apply what is successful.
+
+We have no frameworks and no people-functions. Intelligence and resourcefulness are valued.
+No one stands over your head. Only results are judged.
+
+The goto operator is allowed and widely used. Any hacks leading to the goal are used.
+The end always justifies the means. There are no forbidden tricks, only ineffective ones.
+A good code is the one that solves the task. Of course, it's good if it's not too crooked and clear enough,
+but we'll figure it out.
+You don't need code that is stylistically beautiful but does not solve the task.
+You need code that solves the task because a solved task means money, yours and mine.
+
+While we're on the subject of code, here's what we consider to be good code:
+* simplicity for the dumb. Fuck eight-story designs and fancy features for the sake of fancy features (if you can't do without them, of course).
+Write simply, as simply as possible.
+* Always explain _intentions_ besides _methods_.
+We have a lot of magic being used. Explain everything to the best of your ability, with extended comments.
+You should write not only "what I'm doing", but primarily "why I'm doing it".
+
+bad
+// allocate memory in a remote process and run shell code
+good
+// we need to remove hooks on such and such function in the remote process, because otherwise this and that won't work.
+// so we allocate memory in the remote process and run the shell code, which is taken from here from the github https://....
+// the shell code will find such and such bytes in the prologue of such and such function and patch them to the ones we need.
+// there were also variants one (link) and two (link), but they don't work well on such and such systems.
+
+* the best code is the one that doesn't exist (don't write unnecessary code)
+Don't make groundwork years in advance.
+"Tomorrow" may never come and nobody will need the code.
+"Tomorrow" will turn out to be a bad guess.
+Brevity, minimalism is our everything.
+Occam's Razor cuts off everything, even OOP.
+
+* There is no sense in writing code if it has already been written by someone else. Before writing it, search the Web.
+If you take someone else's code, be sure to put a link to the source code where it was taken from.
+
+Because of this, we have a simple license policy - there is none. Ask for someone else's demo and reverse engineer it,
+to see how it works. Half of the time you can find an article or sources on the topic by characteristic calls and patterns.
+But be aware that the same can be done to your code - how to protect yourself from this is described in another text.
+
+* tolerance
+You don't need your opinion about other people's code and methods of work without special request.
+Everyone has his own style and handwriting. He has either achieved it or is not with us.
+
+
+***
+We have freedom, as far as it's achievable.
+If you produce results, you can do whatever you want. You can hire someone to write it for you, buy it or steal it.
+The most important thing is to see it through to the end.

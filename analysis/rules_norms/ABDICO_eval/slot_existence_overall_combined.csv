@@ -1,0 +1,2 @@
+slots_evaluated,micro_precision,micro_recall,micro_f1,macro_f1_defined,macro_f1_pos_weighted
+6,0.836,0.778,0.806,0.814,0.811

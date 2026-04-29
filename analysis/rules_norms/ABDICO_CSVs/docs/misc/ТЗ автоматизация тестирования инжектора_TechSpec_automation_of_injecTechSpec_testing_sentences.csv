@@ -1,0 +1,171 @@
+Sentence
+OBJECTIVE
+To automate the testing of the injector module
+INJECTOR DESCRIPTION
+Injector is a module made in 2 variants and can be started in 2 different ways:
+- with log
+- without log
+и
+- autonomously
+- by bot
+The logged module requires the following configs:
+c:/temp/sinj4.xml
+c:/temp/dinj.xml
+c:/temp/dpost.xml
+Logs are created in
+c:/temp/loader.log
+c:/temp/core-dll.log
+TESTS
+"A test is a function in PowerShell v2.0 that tests one simple condition,"
+and returns a boolean value indicating that the condition is met.
+Successful execution of the test corresponds to a logical truth.
+The Message property must correspond to the test.
+"In case of any test outcome, the diagnostics confirming this outcome is written to this property."
+"For example, if the log contains the string being searched for (by which the test condition is checked),"
+the found string is copied into this property.
+"If the string is missing, the field is filled with an arbitrary"
+"description of the reason (for example, ""*substring*: no match in c:/temp/logname.log"")."
+The following tests should be written:
+sinj_proxy_alive
+dinj_proxy_alive
+dpost_proxy_alive
+* these three tests should be done last
+loader_log_started
+core_log_started
+chrome_has_inject
+ff_has_inject
+ie_has_inject
+edge_has_inject
+chrome_dpost_ok
+ff_dpost_ok
+ie_dpost_ok
+edge_dpost_ok
+chrome_http2_off
+ff_http2_off
+ie_http2_off
+TODO browser bitness
+OS bitness
+REALIZATION
+The output should be a script in PowerShell v2.0.
+The script should return a return code to the OS equal to the number of failed tests.
+"On startup, the script should perform an auto-update similar to other autotest scripts."
+"At the beginning of each test (except for *proxy* tests and other specified cases), the script should run the load file from the current directory."
+"launch the loader.exe file from the current directory, and after the test is completed, kill the process and delete the log files."
+and delete log files.
+The test should log the following
+2018-08-14 00:01:02 test_name started
+"* test message, if any (Message)"
+2018-08-14 00:01:12 test_name: OK|FAILED|SKIPPED
+"If any test fails (except gasket tests), further tests should be skipped,"
+and the script should be terminated.
+Skipped tests are logically counted as failed tests.
+SETTINGS
+"Settings are placed in variables, placed in the very beginning of the script:"
+- path to sinj configuration
+- path to dinj configuration
+- path to configuration dpost
+- path to loader.log
+- path to core-dll.log
+- module warmup timeout (20 seconds by default)
+- browsers warm-up timeout (35 seconds by default)
+- browser persistence timeout (1 minute by default)
+- login and url for auto-update
+DETAILED DESCRIPTION OF TEST CASES
+* sinj_proxy_alive
+"From sinj config the first pad is selected, TCP-connection is opened."
+to the specified port.
+The test is successful if the TCP connection was opened.
+* dinj_proxy_alive
+The first proxy is selected from the dinj configuration and a TCP connection is opened on the specified port.
+to the specified port.
+The test is successful if the TCP connection was opened.
+* dpost_proxy_alive
+The dpost config tests all pads by opening a TCP connection on a given port.
+The test is successful if it was possible to open a TCP connection to at least one pad.
+* loader_log_started
+Loader.exe is started.
+The test is successful if after the warm-up time:
+- the file loader.log appears on the required path
+- there is an entry in it
+Browsers payload unpacked successfully
+* chrome_has_inject
+Loader.exe is launched.
+After the warm-up time the Chrome process is started.
+After the browser warming up the following conditions are checked:
+- core-dll.log file appears in the right path
+- there are records in it
+We are Chrome
+Chrome version: xxx
+Chrome SSL functions found
+(this is the message for the test)
+- there are at least 3 chrome.exe processes in the list of processes after browser stability timeout
+"(if this item is violated, the test is failed, the following line is added to the test message"
+browser crashed!
+)
+- if there is an entry in the log
+Chrome SSL functions NOT FOUND
+"then the test fails, and this message and the addresses of the functions (below in the log) are copied to the test message."
+* ff_has_inject
+Loader.exe is started.
+After the warm-up time the Mozilla Firefox process is started.
+After the browser warm-up the following conditions are checked:
+- core-dll.log file appears on the necessary path
+- there are records in it
+We are Firefox
+Mozilla Firefox version: xxx
+(this is a message for the test)
+- there is at least 1 process firefox.exe in the list of processes after the browser stability timeout
+"(if this item is violated, the test is failed, the following line is added to the test message"
+browser crashed!
+)
+* ie_has_inject
+Loader.exe is started.
+"After the warm-up time, the Internet Explorer process is started."
+After the browser warm-up the following conditions are checked:
+- core-dll.log file appears in the right path
+- there are records in it
+We are IE
+IE version xxx
+(this is the message for the test.
+"If there is more than one line with version, glue all of them to the message)"
+- there is at least 1 process iexplore.exe in the list of processes after the browser stability timeout
+"(if this item is violated the test is failed, the following line is added to the test message"
+browser crashed!
+)
+* edge_has_inject
+chrome_dpost_ok
+ff_dpost_ok
+ie_dpost_ok
+edge_dpost_ok
+* chrome_http2_off
+Loader.exe is started.
+"After a warm-up time, the Chrome process is started."
+"After the browser warm-up time, the following conditions are checked:"
+- at least one chrome.exe process has the command line keys
+--disable-http2 --use-spdy=off --disable-quic
+* ff_http2_off
+Loader.exe is started.
+"After the warm-up time, the file %APPDATA%\Mozilla\Firefox\Profiles\<profileName>\prefs.js is searched for."
+The test is considered successful if there is a substring in the file
+"user_pref(""network.http.spdy.enabled.http2"", true)"
+* ie_http2_off
+Loader.exe is started.
+After the warm-up time the value of the registry key is checked:
+HKCU\Software\Microsoft\Windows\CurrentVersion\Internet Settings\EnableHTTP2
+== 0
+PHASE 2 TASKS
+"* automatic preparation of VMs for testing, includes:"
+- installing or updating Google Chrome
+- installing or updating Mozilla Firefox
+* integration with bot testing:
+- add tests that check for injects in the browser WITHOUT parsing logs.
+"To do this, we need to find a way to view the page code of the running browser, from the script."
+* basic inject test (common for all browsers)
+Loader.exe is launched.
+"After a warm-up time, the browser is launched."
+After the warm-up time a page from the list is opened.
+"After the page is loaded, its source code is opened."
+A substring is searched for in the source code.
+TODO
+The test is successful if the substring is found.
+The test requires working with windows via WinAPI.

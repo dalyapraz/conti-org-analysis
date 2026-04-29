@@ -1,0 +1,30 @@
+Sentence
+[06/27.2018 14:35] <buza>: now a task
+[06/27.2018 14:35]
+<buza>: we have support for both iE and edge as well
+[06/27.2018 14:35] <buza>: for edge the log itself is not created
+[27.06.2018 14:36] <buza>: it must be created and the rights must be set correctly.
+[27.06.2018 14:36] <buza>: but let's leave that for later
+[27.06.2018 14:36] <buza>: Write a script on cmd that checks the following cases:
+1) loader_is_not_broken (maintained by loader.log)
+2) loader_is_started (loader.log has the necessary patterns for a normal start)
+"3) ff_injects (core-dll.log is started, it has normal startup patterns)"
+"4) chrome_injects (core-dll.log is started, it has a normal startup pattern)"
+"5) ie_injects (started by core-dll.log, it has a normal startup pattern)"
+"6) edge_injects (starts core-dll.log, it has a normal startup pattern)"
+7) ff_grabs
+(there is a pattern of password and history grabbing)
+8) ie_grabs (there is a password and history grab pattern)
+9) chrome_grabs (there is a password and history grab pattern)
+"10) chrome_page_injects (a given page is opened in the browser, a pattern for its injection appears in the log) ..."
+"same for other browsers If the tests fail, this is a reason for the tester to return the build to the developer."
+"[27.06.2018 14:46] <buza>: the log name should contain the current date-time, machine name"
+[27.06.2018 14:46] <buza>: log format
+[06/27/2018 14:46] <buza>: date-time name test start
+[27.06.2018 14:46] <buza>: date-time test name finish: Success / FAILED
+[27.06.2018 14:46] <buza>: total tests passed
+[27.06.2018 14:47] <buza>: total tests successful
+[27.06.2018 14:47] <buza>: total tests failed
+"[27.06.2018 14:47] <buza>: the language is better probably English, because not everywhere there is Cyrillic alphabet"
+[27.06.2018 14:47] <buza>: ah yes
+[27.06.2018 14:48] <buza>: also before a series of tests for each browser in the log should go browser version

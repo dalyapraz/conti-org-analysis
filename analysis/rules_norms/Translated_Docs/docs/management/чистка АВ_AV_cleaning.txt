@@ -1,0 +1,14 @@
+TIPS FOR CLEARING ANTIVIRUS DETECTIONS
+
+1. When an AV detector is detected on software (on any software, not necessarily this project), the developer:
+- records in RELEASE NOTES the date, the name of the AV, the type of AV detector (static/dynamic), and the name of the detector(s).
+If detections are on several ABs, attach dyncheck link.
+Also writes special notes if there are any (anything that he/she considers necessary to add - observations, conjectures, patterns).
+- In the course of detectorization, describes the methods of detectorization, which were used, and the results achieved.
+
+In short, during detections, a log with all details should be kept in the RELEASE_NOTES.txt file of the project.
+It is necessary for experience exchange between different developers, identification of the most effective methodology, as well as accumulation of statistics on AB operation.
+
+2. The "researcher's quick start" describes in detail the principles of withdrawal and all currently known factors.
+
+3. To remove static, you should use avclean's automatic detector scanner to save your time.

