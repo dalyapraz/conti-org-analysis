@@ -20,7 +20,7 @@ This repository accompanies the following paper:
 
 > Manatova, Dalyapraz., McGrath, Cathleen., & Camp, L. Jean. (2026).  
 > *The Organizational Anatomy of Cybercrime: A Multilayer Framework for Modeling Resilience.*  
-> To appear in *Journal of Cybersecurity*.
+> In press in *Journal of Cybersecurity* https://doi.org/10.1093/cybsec/tyag014.
 
 ## Data
 
@@ -28,7 +28,7 @@ The analysis is based on publicly leaked Conti data.
 
 - Chat logs are preserved in their original language (Russian) for computational analysis.
 - Translated documentation used for rules and norms analysis was generated using the DeepL API and manually reviewed and corrected by the author where necessary.
-- Raw data may not be fully redistributed in this repository. Processed data and derived artifacts are provided where possible to support reproducibility.
+- Raw data may not be fully redistributed in this repository. Processed data and derived artifacts are provided where possible to support reproducibility. For example if you are looking for translated documents, the files appear in `analysis/rules_norms/Translated_Docs/docs`.  
 
 ## Repository structure
 
